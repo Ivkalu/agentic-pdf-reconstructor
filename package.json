@@ -1,0 +1,26 @@
+{
+  "name": "agent-pdf-reconstruction",
+  "version": "1.0.0",
+  "description": "Agentic PDF reconstructor using LangChain/LangGraph with LaTeX",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "docker:build": "docker compose build",
+    "docker:run": "docker compose run --rm app"
+  },
+  "dependencies": {
+    "@langchain/anthropic": "^0.3.14",
+    "@langchain/core": "^0.3.37",
+    "@langchain/langgraph": "^0.2.44",
+    "zod": "^3.24.1",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.12.0"
+  }
+}

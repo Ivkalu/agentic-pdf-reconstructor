@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    volumes:
+      - ./input:/app/input
+      - ./output:/app/output
+    env_file:
+      - .env
+    environment:
+      - WORKSPACE_PATH=/workspace
