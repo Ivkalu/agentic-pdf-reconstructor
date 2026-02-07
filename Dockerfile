@@ -1,6 +1,6 @@
 FROM node:20-slim
 
-# Install LaTeX and poppler-utils for PDF compilation and image conversion
+# Install LaTeX, poppler-utils, ffmpeg, and tesseract-ocr
 RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-latex-base \
     texlive-latex-extra \
@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     texlive-pictures \
     latexmk \
     poppler-utils \
+    ffmpeg \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-hrv \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -26,7 +30,10 @@ RUN npm run build
 # Create workspace directory for temporary LaTeX files
 RUN mkdir -p /workspace
 
-# Default input/output directories
-RUN mkdir -p /app/input /app/output
+# Default input/output directories and uploads directory
+RUN mkdir -p /app/input /app/output /app/uploads
 
-ENTRYPOINT ["node", "dist/index.js"]
+EXPOSE 3000
+
+# Default: run the web server. Override with CLI entrypoint for video analyzer.
+CMD ["node", "dist/server/index.js"]

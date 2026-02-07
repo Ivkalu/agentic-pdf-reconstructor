@@ -1,6 +1,8 @@
 services:
   app:
     build: .
+    ports:
+      - "3000:3000"
     volumes:
       - ./input:/app/input
       - ./output:/app/output
@@ -8,3 +10,4 @@ services:
       - .env
     environment:
       - WORKSPACE_PATH=/workspace
+      - PORT=3000

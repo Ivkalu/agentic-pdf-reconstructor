@@ -131,6 +131,21 @@ export function buildGraph(options: BuildGraphOptions) {
 
     const response = await reconstructorModel.invoke(messages);
 
+    // Log the agent's text response
+    if (response instanceof AIMessage) {
+      const textContent = typeof response.content === "string"
+        ? response.content
+        : Array.isArray(response.content)
+          ? response.content
+              .filter((c): c is { type: "text"; text: string } => typeof c === "object" && c !== null && "type" in c && c.type === "text")
+              .map((c) => c.text)
+              .join("\n")
+          : "";
+      if (textContent) {
+        log.info(`Agent message (iteration ${newIteration}):\n${textContent}`);
+      }
+    }
+
     // Check if done tool was called in this response
     let doneDetected = false;
     if (
@@ -139,7 +154,7 @@ export function buildGraph(options: BuildGraphOptions) {
       response.tool_calls.length > 0
     ) {
       doneDetected = response.tool_calls.some((tc) => tc.name === "done");
-      log.debug("Agent response tool calls", {
+      log.info("Agent tool calls", {
         toolCalls: response.tool_calls.map((tc) => tc.name),
         doneDetected,
       });

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Reconstruction &amp; Video Analyzer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1 class="header__title">Document Tools</h1>
+    <p class="header__subtitle">PDF Reconstruction &amp; Video Analysis</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tabs__btn tabs__btn--active" role="tab" aria-selected="true" data-tab="pdf">
+      PDF Reconstruction
+    </button>
+    <button class="tabs__btn" role="tab" aria-selected="false" data-tab="video">
+      Video Analyzer
+    </button>
+  </nav>
+
+  <!-- Job History -->
+  <div class="jobs-history" id="jobs-history" hidden>
+    <div class="jobs-history__header">
+      <h2 class="jobs-history__title">Recent Jobs</h2>
+      <button type="button" class="btn btn--secondary btn--sm" id="jobs-refresh-btn">Refresh</button>
+    </div>
+    <div class="jobs-history__list" id="jobs-list"></div>
+  </div>
+
+  <main class="main">
+    <!-- PDF Reconstruction Tab -->
+    <section id="tab-pdf" class="tab-panel tab-panel--active" role="tabpanel">
+      <div class="card">
+        <h2 class="card__title">Reconstruct PDF from Image</h2>
+        <p class="card__desc">Upload a screenshot or photo of a document, and the AI agent will reconstruct it as a LaTeX-compiled PDF.</p>
+
+        <div class="dropzone" id="pdf-dropzone">
+          <div class="dropzone__content">
+            <svg class="dropzone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="dropzone__text">Drag and drop an image here</p>
+            <p class="dropzone__hint">PNG, JPG, GIF, WebP, BMP (max 20 MB)</p>
+            <button type="button" class="btn btn--secondary" id="pdf-browse-btn">Browse Files</button>
+            <input type="file" id="pdf-file-input" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp" hidden>
+          </div>
+        </div>
+
+        <div class="file-info" id="pdf-file-info" hidden>
+          <span class="file-info__name" id="pdf-file-name"></span>
+          <button type="button" class="file-info__remove" id="pdf-file-remove" title="Remove file">&times;</button>
+        </div>
+
+        <button type="button" class="btn btn--primary" id="pdf-process-btn" disabled>Process</button>
+
+        <!-- Progress -->
+        <div class="progress" id="pdf-progress" hidden>
+          <div class="spinner"></div>
+          <p class="progress__text">Processing... This may take a few minutes.</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="pdf-error" hidden></div>
+
+        <!-- Result -->
+        <div class="result" id="pdf-result" hidden>
+          <h3 class="result__title">Reconstruction Complete</h3>
+          <p class="result__meta" id="pdf-iterations"></p>
+          <div class="result__preview" id="pdf-preview"></div>
+          <button type="button" class="btn btn--primary" id="pdf-download-btn">Download PDF</button>
+
+          <!-- Iteration Gallery -->
+          <div class="iteration-gallery" id="iteration-gallery" hidden>
+            <h4 class="iteration-gallery__title">Iteration History</h4>
+            <p class="iteration-gallery__desc">Click on an iteration to preview that version of the PDF.</p>
+            <div class="iteration-gallery__timeline" id="iteration-timeline"></div>
+            <div class="iteration-gallery__preview" id="iteration-preview" hidden>
+              <div class="iteration-gallery__preview-header">
+                <span id="iteration-preview-label"></span>
+                <button type="button" class="btn btn--secondary btn--sm" id="iteration-close-btn">Close</button>
+              </div>
+              <div class="iteration-gallery__preview-frame" id="iteration-preview-frame"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Video Analyzer Tab -->
+    <section id="tab-video" class="tab-panel" role="tabpanel">
+      <div class="card">
+        <h2 class="card__title">Analyze Video Frames</h2>
+        <p class="card__desc">Upload a video to extract and cluster representative frames using scene detection and visual similarity.</p>
+
+        <div class="dropzone" id="video-dropzone">
+          <div class="dropzone__content">
+            <svg class="dropzone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="dropzone__text">Drag and drop a video here</p>
+            <p class="dropzone__hint">MP4, AVI, MOV, MKV, WebM, MPEG (max 500 MB)</p>
+            <button type="button" class="btn btn--secondary" id="video-browse-btn">Browse Files</button>
+            <input type="file" id="video-file-input" accept="video/mp4,video/avi,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/mpeg" hidden>
+          </div>
+        </div>
+
+        <div class="file-info" id="video-file-info" hidden>
+          <span class="file-info__name" id="video-file-name"></span>
+          <button type="button" class="file-info__remove" id="video-file-remove" title="Remove file">&times;</button>
+        </div>
+
+        <div class="config">
+          <h3 class="config__title">Configuration (optional)</h3>
+          <div class="config__grid">
+            <div class="config__field">
+              <label for="video-cluster-method">Clustering Method</label>
+              <select id="video-cluster-method">
+                <option value="auto" selected>K-Means (auto)</option>
+                <option value="kmeans">K-Means (manual)</option>
+                <option value="dbscan">DBSCAN</option>
+              </select>
+            </div>
+            <div class="config__field" id="video-clusters-field" hidden>
+              <label for="video-clusters">Number of Clusters</label>
+              <input type="number" id="video-clusters" min="1" max="100" placeholder="Auto-detect">
+            </div>
+            <div class="config__field" id="video-eps-field" hidden>
+              <label for="video-eps">DBSCAN Epsilon</label>
+              <input type="number" id="video-eps" min="0" step="0.1" placeholder="Default">
+            </div>
+            <div class="config__field">
+              <label for="video-lang">OCR Language</label>
+              <select id="video-lang">
+                <option value="eng" selected>English</option>
+                <option value="hrv">Croatian</option>
+                <option value="deu">German</option>
+                <option value="fra">French</option>
+                <option value="spa">Spanish</option>
+                <option value="ita">Italian</option>
+                <option value="por">Portuguese</option>
+                <option value="rus">Russian</option>
+                <option value="jpn">Japanese</option>
+                <option value="chi_sim">Chinese (Simplified)</option>
+                <option value="kor">Korean</option>
+                <option value="ara">Arabic</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn--primary" id="video-process-btn" disabled>Process</button>
+
+        <!-- Progress -->
+        <div class="progress" id="video-progress" hidden>
+          <div class="spinner"></div>
+          <p class="progress__text">Analyzing video... This may take several minutes depending on video length.</p>
+        </div>
+
+        <!-- Error -->
+        <div class="error-msg" id="video-error" hidden></div>
+
+        <!-- Result -->
+        <div class="result" id="video-result" hidden>
+          <h3 class="result__title">Analysis Complete</h3>
+          <p class="result__meta" id="video-meta"></p>
+
+          <!-- Group Timeline -->
+          <div class="timeline" id="video-timeline">
+            <h4 class="timeline__title">Group Timeline</h4>
+            <div class="timeline__bar" id="video-timeline-bar"></div>
+            <div class="timeline__legend" id="video-timeline-legend"></div>
+          </div>
+
+          <div class="frame-grid" id="video-frame-grid"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

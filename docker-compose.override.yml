@@ -1,0 +1,6 @@
+services:
+  app:
+    volumes:
+      - ./src:/app/src
+      - ./tsconfig.json:/app/tsconfig.json
+    command: npx tsx watch src/server/index.ts

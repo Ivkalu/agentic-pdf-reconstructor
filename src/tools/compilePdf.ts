@@ -1,7 +1,7 @@
 import { DynamicStructuredTool } from "@langchain/core/tools";
 import { z } from "zod";
 import { execSync } from "node:child_process";
-import { readFile, stat } from "node:fs/promises";
+import { copyFile, readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { createChildLogger } from "../utils/logger.js";
 import type { ToolConfig } from "../types.js";
@@ -104,6 +104,18 @@ export function createCompilePdfTool(config: ToolConfig) {
           pdfPath,
           pdfSizeBytes: pdfSize,
         });
+
+        // Save iteration snapshot
+        try {
+          const files = await readdir(config.workspacePath);
+          const iterationFiles = files.filter((f) => /^iteration_\d+\.pdf$/.test(f));
+          const nextN = iterationFiles.length + 1;
+          const iterationPath = path.join(config.workspacePath, `iteration_${nextN}.pdf`);
+          await copyFile(pdfPath, iterationPath);
+          log.info("Iteration PDF saved", { iterationPath, n: nextN });
+        } catch (copyErr) {
+          log.warn("Failed to save iteration PDF", { error: String(copyErr) });
+        }
 
         let result = `Compilation successful. PDF written to ${pdfPath} (${pdfSize} bytes).`;
         if (logErrors.length > 0) {

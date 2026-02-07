@@ -5,3 +5,4 @@ workspace/
 output/
 input/
 *.log
+.claude
