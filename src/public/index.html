@@ -120,14 +120,10 @@
           <h3 class="config__title">Configuration (optional)</h3>
           <div class="config__grid">
             <div class="config__field">
-              <label for="video-cluster-method">Clustering Method</label>
-              <select id="video-cluster-method">
-                <option value="auto" selected>K-Means (auto)</option>
-                <option value="kmeans">K-Means (manual)</option>
-                <option value="dbscan">DBSCAN</option>
-              </select>
+              <label>Clustering Method</label>
+              <button type="button" class="btn btn--toggle" id="video-cluster-toggle">K-Means</button>
             </div>
-            <div class="config__field" id="video-clusters-field" hidden>
+            <div class="config__field" id="video-clusters-field">
               <label for="video-clusters">Number of Clusters</label>
               <input type="number" id="video-clusters" min="1" max="100" placeholder="Auto-detect">
             </div>

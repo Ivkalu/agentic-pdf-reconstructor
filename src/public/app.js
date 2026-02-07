@@ -471,31 +471,31 @@
 
   // ───── Video Analyzer ─────
 
-  // Clustering method toggle — show/hide clusters vs eps field
-  var clusterMethodSelect = $("#video-cluster-method");
+  // Clustering method toggle — button switches between K-Means and DBSCAN
+  var clusterToggleBtn = $("#video-cluster-toggle");
   var clustersField = $("#video-clusters-field");
   var epsField = $("#video-eps-field");
+  var currentClusterMethod = "kmeans";
 
   function updateClusterFields() {
-    var method = clusterMethodSelect.value;
-    if (method === "kmeans") {
+    if (currentClusterMethod === "kmeans") {
+      clusterToggleBtn.textContent = "K-Means";
       show(clustersField);
       hide(epsField);
       $("#video-eps").value = "";
-    } else if (method === "dbscan") {
+    } else {
+      clusterToggleBtn.textContent = "DBSCAN";
       hide(clustersField);
       show(epsField);
       $("#video-clusters").value = "";
-    } else {
-      // auto
-      hide(clustersField);
-      hide(epsField);
-      $("#video-clusters").value = "";
-      $("#video-eps").value = "";
     }
   }
 
-  clusterMethodSelect.addEventListener("change", updateClusterFields);
+  clusterToggleBtn.addEventListener("click", function () {
+    currentClusterMethod = currentClusterMethod === "kmeans" ? "dbscan" : "kmeans";
+    updateClusterFields();
+  });
+
   updateClusterFields();
 
   var videoDropzone = setupDropzone({
@@ -545,13 +545,12 @@
 
     // Build query string from config
     var params = [];
-    var method = clusterMethodSelect.value;
     var clusters = $("#video-clusters").value;
     var eps = $("#video-eps").value;
     var lang = $("#video-lang").value;
 
-    if (method === "kmeans" && clusters) params.push("nClusters=" + encodeURIComponent(clusters));
-    if (method === "dbscan" && eps) params.push("dbscanEps=" + encodeURIComponent(eps));
+    if (currentClusterMethod === "kmeans" && clusters) params.push("nClusters=" + encodeURIComponent(clusters));
+    if (currentClusterMethod === "dbscan" && eps) params.push("dbscanEps=" + encodeURIComponent(eps));
     if (lang) params.push("lang=" + encodeURIComponent(lang));
 
     var qs = params.length > 0 ? "?" + params.join("&") : "";
@@ -638,49 +637,76 @@
     bar.innerHTML = "";
     legend.innerHTML = "";
 
-    // Build a flat array: for each frame number, which group owns it
-    // First, find max frame number
-    var maxFrame = 0;
-    data.groups.forEach(function (group) {
-      if (group.frameNumbers) {
-        group.frameNumbers.forEach(function (n) {
-          if (n > maxFrame) maxFrame = n;
-        });
-      }
+    if (!data.groups || data.groups.length === 0) return;
+
+    // Check if any group has frameNumbers
+    var hasFrameNumbers = data.groups.some(function (g) {
+      return g.frameNumbers && g.frameNumbers.length > 0;
     });
 
-    if (maxFrame === 0) return;
-
-    // Map frame number -> groupIndex
-    var frameMap = {};
-    data.groups.forEach(function (group) {
-      if (group.frameNumbers) {
-        group.frameNumbers.forEach(function (n) {
-          frameMap[n] = group.groupIndex;
-        });
-      }
-    });
-
-    // Build runs of consecutive same-group frames for efficiency
     var runs = [];
-    var currentGroup = frameMap[1] || -1;
-    var runStart = 1;
 
-    for (var f = 2; f <= maxFrame; f++) {
-      var g = frameMap[f] || -1;
-      if (g !== currentGroup) {
-        runs.push({ group: currentGroup, start: runStart, end: f - 1 });
-        currentGroup = g;
-        runStart = f;
+    if (hasFrameNumbers) {
+      // Build exact frame-level timeline from frameNumbers
+      var maxFrame = 0;
+      data.groups.forEach(function (group) {
+        if (group.frameNumbers) {
+          group.frameNumbers.forEach(function (n) {
+            if (n > maxFrame) maxFrame = n;
+          });
+        }
+      });
+
+      if (maxFrame === 0) return;
+
+      // Map frame number -> groupIndex
+      var frameMap = {};
+      data.groups.forEach(function (group) {
+        if (group.frameNumbers) {
+          group.frameNumbers.forEach(function (n) {
+            frameMap[n] = group.groupIndex;
+          });
+        }
+      });
+
+      // Build runs of consecutive same-group frames
+      var currentGroup = frameMap[1] !== undefined ? frameMap[1] : -1;
+      var runStart = 1;
+
+      for (var f = 2; f <= maxFrame; f++) {
+        var g = frameMap[f] !== undefined ? frameMap[f] : -1;
+        if (g !== currentGroup) {
+          runs.push({ group: currentGroup, start: runStart, end: f - 1, total: maxFrame });
+          currentGroup = g;
+          runStart = f;
+        }
       }
+      runs.push({ group: currentGroup, start: runStart, end: maxFrame, total: maxFrame });
+    } else {
+      // Fallback: proportional segments from frameCount
+      var totalFrames = data.totalFrames || 0;
+      if (totalFrames === 0) {
+        data.groups.forEach(function (g) { totalFrames += g.frameCount; });
+      }
+      if (totalFrames === 0) return;
+
+      var offset = 0;
+      data.groups.forEach(function (group) {
+        runs.push({
+          group: group.groupIndex,
+          start: offset + 1,
+          end: offset + group.frameCount,
+          total: totalFrames,
+        });
+        offset += group.frameCount;
+      });
     }
-    runs.push({ group: currentGroup, start: runStart, end: maxFrame });
 
     // Render segments
     runs.forEach(function (run) {
       var segment = document.createElement("div");
       segment.className = "timeline__segment";
-      var widthPct = ((run.end - run.start + 1) / maxFrame) * 100;
+      var widthPct = ((run.end - run.start + 1) / run.total) * 100;
       segment.style.width = widthPct + "%";
 
       if (run.group === -1) {

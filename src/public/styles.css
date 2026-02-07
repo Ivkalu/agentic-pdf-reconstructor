@@ -216,6 +216,24 @@ body {
   background: var(--color-border);
 }
 
+.btn--toggle {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-primary);
+  color: #fff;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn--toggle:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
 /* File Info */
 .file-info {
   display: flex;
