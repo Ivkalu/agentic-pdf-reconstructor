@@ -106,7 +106,7 @@ export function createVerifyPdfTool(config: ToolConfig) {
         log.info("Analyzer response received", {
           feedbackLength: feedback.length,
           feedbackRound: feedbackHistory.length,
-          feedbackPreview: feedback.slice(0, 200),
+          feedback,
         });
 
         // Log to chat history
