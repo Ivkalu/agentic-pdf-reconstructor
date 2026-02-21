@@ -194,7 +194,6 @@
   }
 
   function resetPanelState(section) {
-    hide($("#" + section + "-progress"));
     hide($("#" + section + "-result"));
     hide($("#" + section + "-error"));
   }
@@ -284,14 +283,12 @@
 
   function startPdfJob(file) {
     var processBtn = $("#pdf-process-btn");
-    var progress = $("#pdf-progress");
     var result = $("#pdf-result");
     var error = $("#pdf-error");
 
     processBtn.disabled = true;
     hide(error);
     hide(result);
-    show(progress);
 
     var formData = new FormData();
     formData.append("file", file);
@@ -312,17 +309,13 @@
         loadJobHistory();
       })
       .catch(function (err) {
-        hide(progress);
         processBtn.disabled = false;
         showError("pdf", err.message || "Failed to upload file.");
       });
   }
 
   function pollPdfResult(jobId) {
-    var progress = $("#pdf-progress");
     var processBtn = $("#pdf-process-btn");
-
-    show(progress);
 
     var pollInterval = setInterval(function () {
       fetch("/api/pdf-reconstruction/result/" + encodeURIComponent(jobId))
@@ -332,7 +325,6 @@
         .then(function (data) {
           if (!data.success && data.error) {
             clearInterval(pollInterval);
-            hide(progress);
             processBtn.disabled = false;
             showError("pdf", data.error);
             loadJobHistory();
@@ -344,7 +336,6 @@
           }
 
           clearInterval(pollInterval);
-          hide(progress);
           processBtn.disabled = false;
 
           if (data.data && data.data.status === "completed") {
@@ -354,7 +345,6 @@
         })
         .catch(function (err) {
           clearInterval(pollInterval);
-          hide(progress);
           processBtn.disabled = false;
           showError("pdf", err.message || "Failed to fetch results.");
         });
