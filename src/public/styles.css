@@ -811,3 +811,100 @@ body {
     height: 350px;
   }
 }
+
+/* Model Selector */
+.model-selector {
+  margin-bottom: 1.25rem;
+}
+
+.model-selector__label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.model-selector__options {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.model-option {
+  flex: 1;
+  cursor: pointer;
+}
+
+.model-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.model-option__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  transition: all var(--transition);
+  gap: 0.15rem;
+  text-align: center;
+}
+
+.model-option input[type="radio"]:checked + .model-option__card {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.model-option:hover .model-option__card {
+  border-color: var(--color-border-strong);
+}
+
+.model-option__name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.model-option__desc {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+/* API Key Field */
+.api-key-field {
+  margin-top: 0.75rem;
+}
+
+.api-key-field__label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--color-text);
+  margin-bottom: 0.35rem;
+}
+
+.api-key-field__input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-family: monospace;
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: border-color var(--transition);
+}
+
+.api-key-field__input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}

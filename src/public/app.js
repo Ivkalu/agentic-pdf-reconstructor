@@ -356,6 +356,59 @@
   // Load job history on page load
   loadJobHistory();
 
+  // ───── PDF Model Selector ─────
+
+  var pdfProviderConfig = { anthropic: true, gemini: false }; // defaults
+  var pdfApiKeyField = $("#pdf-api-key-field");
+  var pdfApiKeyInput = $("#pdf-api-key");
+  var pdfProviderRadios = document.querySelectorAll('input[name="pdf-provider"]');
+
+  function getSelectedProvider() {
+    for (var i = 0; i < pdfProviderRadios.length; i++) {
+      if (pdfProviderRadios[i].checked) return pdfProviderRadios[i].value;
+    }
+    return "anthropic";
+  }
+
+  function updateApiKeyVisibility() {
+    var provider = getSelectedProvider();
+    var hasEnvKey = provider === "gemini" ? pdfProviderConfig.gemini : pdfProviderConfig.anthropic;
+    if (hasEnvKey) {
+      hide(pdfApiKeyField);
+      pdfApiKeyInput.value = "";
+    } else {
+      show(pdfApiKeyField);
+    }
+    // Update label to show provider name
+    var label = pdfApiKeyField.querySelector(".api-key-field__label");
+    if (label) {
+      label.textContent = (provider === "gemini" ? "Gemini" : "Anthropic") + " API Key";
+    }
+    var input = pdfApiKeyField.querySelector(".api-key-field__input");
+    if (input) {
+      input.placeholder = provider === "gemini"
+        ? "Paste your Gemini API key here..."
+        : "Paste your Anthropic API key here...";
+    }
+  }
+
+  pdfProviderRadios.forEach(function (radio) {
+    radio.addEventListener("change", updateApiKeyVisibility);
+  });
+
+  // Fetch server config to know which keys are set in .env
+  fetch("/api/pdf-reconstruction/config")
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data.success && data.data) {
+        pdfProviderConfig = data.data;
+      }
+      updateApiKeyVisibility();
+    })
+    .catch(function () {
+      updateApiKeyVisibility();
+    });
+
   // ───── PDF Reconstruction ─────
 
   var pdfDropzone = setupDropzone({
@@ -395,8 +448,22 @@
     hide(error);
     hide(result);
 
+    var provider = getSelectedProvider();
+    var hasEnvKey = provider === "gemini" ? pdfProviderConfig.gemini : pdfProviderConfig.anthropic;
+    var userApiKey = pdfApiKeyInput.value.trim();
+
+    if (!hasEnvKey && !userApiKey) {
+      processBtn.disabled = false;
+      showError("pdf", "Please enter your " + (provider === "gemini" ? "Gemini" : "Anthropic") + " API key.");
+      return;
+    }
+
     var formData = new FormData();
     formData.append("file", file);
+    formData.append("provider", provider);
+    if (!hasEnvKey && userApiKey) {
+      formData.append("apiKey", userApiKey);
+    }
 
     fetch("/api/pdf-reconstruction/upload", {
       method: "POST",

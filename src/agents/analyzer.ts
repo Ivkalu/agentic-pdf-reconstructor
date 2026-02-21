@@ -1,4 +1,5 @@
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { createChildLogger } from "../utils/logger.js";
 
@@ -52,19 +53,33 @@ export async function analyzeDocuments(
   pdfImages: string[],
   apiKey: string,
   previousFeedback?: string[],
+  provider?: "anthropic" | "gemini",
 ): Promise<string> {
+  const resolvedProvider = provider ?? "anthropic";
+
   log.info("Analyzer invoked", {
+    provider: resolvedProvider,
     originalImageSize: originalImage.length,
     pdfPageCount: pdfImages.length,
     pdfImageSizes: pdfImages.map((img) => img.length),
     previousRounds: previousFeedback?.length ?? 0,
   });
 
-  const model = new ChatAnthropic({
-    model: "claude-sonnet-4-20250514",
-    anthropicApiKey: apiKey,
-    maxTokens: 4096,
-  });
+  let model;
+
+  if (resolvedProvider === "gemini") {
+    model = new ChatGoogleGenerativeAI({
+      model: "gemini-2.0-flash",
+      apiKey,
+      maxOutputTokens: 4096,
+    });
+  } else {
+    model = new ChatAnthropic({
+      model: "claude-sonnet-4-20250514",
+      anthropicApiKey: apiKey,
+      maxTokens: 4096,
+    });
+  }
 
   const humanContent: Array<
     | { type: "text"; text: string }

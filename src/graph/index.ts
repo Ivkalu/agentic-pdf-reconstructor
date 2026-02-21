@@ -95,6 +95,7 @@ export interface BuildGraphOptions {
   systemPrompt?: string;
   imageBase64: string;
   imageMimeType: string;
+  provider?: "anthropic" | "gemini";
 }
 
 export function buildGraph(options: BuildGraphOptions) {
@@ -104,15 +105,17 @@ export function buildGraph(options: BuildGraphOptions) {
     maxIterations = DEFAULT_MAX_ITERATIONS,
     imageBase64,
     imageMimeType,
+    provider,
   } = options;
 
   log.info("Building LangGraph workflow", {
     toolCount: tools.length,
     toolNames: tools.map((t) => t.name),
     maxIterations,
+    provider: provider ?? "anthropic",
   });
 
-  const reconstructorModel = createReconstructorModel({ apiKey, tools });
+  const reconstructorModel = createReconstructorModel({ apiKey, tools, provider });
 
   // Create the tool node
   const toolNode = new ToolNode(tools);

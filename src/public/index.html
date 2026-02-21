@@ -37,6 +37,31 @@
         <h2 class="card__title">Reconstruct PDF from Image</h2>
         <p class="card__desc">Upload a screenshot or photo of a document, and the AI agent will reconstruct it as a LaTeX-compiled PDF.</p>
 
+        <!-- Model Selector -->
+        <div class="model-selector" id="pdf-model-selector">
+          <label class="model-selector__label">AI Model</label>
+          <div class="model-selector__options">
+            <label class="model-option">
+              <input type="radio" name="pdf-provider" value="anthropic" checked>
+              <span class="model-option__card">
+                <span class="model-option__name">Anthropic</span>
+                <span class="model-option__desc">Claude Sonnet</span>
+              </span>
+            </label>
+            <label class="model-option">
+              <input type="radio" name="pdf-provider" value="gemini">
+              <span class="model-option__card">
+                <span class="model-option__name">Google</span>
+                <span class="model-option__desc">Gemini 2.0 Flash</span>
+              </span>
+            </label>
+          </div>
+          <div class="api-key-field" id="pdf-api-key-field" hidden>
+            <label class="api-key-field__label" for="pdf-api-key">API Key</label>
+            <input type="password" id="pdf-api-key" class="api-key-field__input" placeholder="Paste your API key here...">
+          </div>
+        </div>
+
         <div class="dropzone" id="pdf-dropzone">
           <div class="dropzone__content">
             <svg class="dropzone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">

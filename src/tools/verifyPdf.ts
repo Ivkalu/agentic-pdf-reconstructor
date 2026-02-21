@@ -86,12 +86,17 @@ export function createVerifyPdfTool(config: ToolConfig) {
         log.info("PDF converted to images", { pageCount: pdfImages.length });
 
         // Invoke the analyzer agent
-        const apiKey = config.apiKey ?? process.env.ANTHROPIC_API_KEY ?? "";
+        const provider = config.provider ?? "anthropic";
+        const envKey = provider === "gemini"
+          ? process.env.GEMINI_API_KEY
+          : process.env.ANTHROPIC_API_KEY;
+        const apiKey = config.apiKey ?? envKey ?? "";
         if (!apiKey) {
-          return "Error: No Anthropic API key available for the analyzer agent.";
+          return `Error: No ${provider === "gemini" ? "Gemini" : "Anthropic"} API key available for the analyzer agent.`;
         }
 
         log.info("Invoking analyzer agent", {
+          provider,
           previousFeedbackRounds: feedbackHistory.length,
         });
         const feedback = await analyzeDocuments(
@@ -99,6 +104,7 @@ export function createVerifyPdfTool(config: ToolConfig) {
           pdfImages,
           apiKey,
           feedbackHistory.length > 0 ? feedbackHistory : undefined,
+          provider,
         );
 
         feedbackHistory.push(feedback);

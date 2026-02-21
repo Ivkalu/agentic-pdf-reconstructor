@@ -1,4 +1,5 @@
 import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { createChildLogger } from "../utils/logger.js";
 
@@ -27,23 +28,37 @@ export const SYSTEM_PROMPT = `You are an expert LaTeX document reconstructor wit
 export interface CreateReconstructorOptions {
   apiKey: string;
   tools: DynamicStructuredTool[];
+  provider?: "anthropic" | "gemini";
 }
 
 export function createReconstructorModel(options: CreateReconstructorOptions) {
+  const provider = options.provider ?? "anthropic";
+
   log.info("Creating reconstructor model", {
+    provider,
     toolCount: options.tools.length,
     toolNames: options.tools.map((t) => t.name),
   });
 
-  const model = new ChatAnthropic({
-    model: "claude-sonnet-4-20250514",
-    anthropicApiKey: options.apiKey,
-    maxTokens: 8192,
-  });
+  let model;
+
+  if (provider === "gemini") {
+    model = new ChatGoogleGenerativeAI({
+      model: "gemini-2.0-flash",
+      apiKey: options.apiKey,
+      maxOutputTokens: 8192,
+    });
+  } else {
+    model = new ChatAnthropic({
+      model: "claude-sonnet-4-20250514",
+      anthropicApiKey: options.apiKey,
+      maxTokens: 8192,
+    });
+  }
 
   const modelWithTools = model.bindTools(options.tools);
 
-  log.info("Reconstructor model created and tools bound");
+  log.info("Reconstructor model created and tools bound", { provider });
 
   return modelWithTools;
 }

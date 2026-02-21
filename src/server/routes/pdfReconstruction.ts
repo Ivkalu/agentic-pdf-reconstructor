@@ -58,6 +58,17 @@ const upload = multer({
 
 const router = Router();
 
+// GET /api/pdf-reconstruction/config — which API keys are configured in the environment
+router.get("/config", (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    data: {
+      anthropic: Boolean(process.env.ANTHROPIC_API_KEY),
+      gemini: Boolean(process.env.GEMINI_API_KEY),
+    },
+  });
+});
+
 // POST /api/pdf-reconstruction/upload
 router.post("/upload", upload.single("file"), async (req: Request, res: Response) => {
   try {
@@ -66,9 +77,19 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
       return;
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+    // Resolve provider and API key
+    const provider = (req.body.provider === "gemini" ? "gemini" : "anthropic") as "anthropic" | "gemini";
+    const envKey = provider === "gemini"
+      ? process.env.GEMINI_API_KEY
+      : process.env.ANTHROPIC_API_KEY;
+    const apiKey = envKey ?? req.body.apiKey ?? "";
+
     if (!apiKey) {
-      res.status(500).json({ success: false, error: "ANTHROPIC_API_KEY not configured" });
+      const providerName = provider === "gemini" ? "Gemini (GEMINI_API_KEY)" : "Anthropic (ANTHROPIC_API_KEY)";
+      res.status(400).json({
+        success: false,
+        error: `No API key available for ${providerName}. Please provide your API key.`,
+      });
       return;
     }
 
@@ -79,7 +100,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
     const imagePath = req.file.path;
     const imageMimeType = getMimeType(imagePath);
 
-    log.info("PDF reconstruction job started", { jobId, imagePath });
+    log.info("PDF reconstruction job started", { jobId, imagePath, provider });
 
     await createJob(jobId, "pdf-reconstruction");
 
@@ -99,6 +120,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           workspacePath: jobWorkspace,
           originalImagePath: imagePath,
           apiKey,
+          provider,
           onChatMessage: async (message) => {
             await appendChatMessage(jobId, message);
           },
@@ -114,6 +136,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
 
         const finalState = await runGraph({
           apiKey,
+          provider,
           tools,
           imageBase64,
           imageMimeType,
