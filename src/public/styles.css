@@ -246,6 +246,10 @@ body {
   font-size: 0.875rem;
 }
 
+.file-info[hidden] {
+  display: none;
+}
+
 .file-info__name {
   flex: 1;
   font-weight: 500;

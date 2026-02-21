@@ -521,14 +521,12 @@
 
   function startVideoJob(file) {
     var processBtn = $("#video-process-btn");
-    var progress = $("#video-progress");
     var result = $("#video-result");
     var error = $("#video-error");
 
     processBtn.disabled = true;
     hide(error);
     hide(result);
-    show(progress);
 
     var formData = new FormData();
     formData.append("file", file);
@@ -560,17 +558,13 @@
         loadJobHistory();
       })
       .catch(function (err) {
-        hide(progress);
         processBtn.disabled = false;
         showError("video", err.message || "Failed to upload file.");
       });
   }
 
   function pollVideoResult(jobId) {
-    var progress = $("#video-progress");
     var processBtn = $("#video-process-btn");
-
-    show(progress);
 
     var pollInterval = setInterval(function () {
       fetch("/api/video-analyzer/result/" + encodeURIComponent(jobId))
@@ -580,7 +574,6 @@
         .then(function (data) {
           if (!data.success && data.error) {
             clearInterval(pollInterval);
-            hide(progress);
             processBtn.disabled = false;
             showError("video", data.error);
             loadJobHistory();
@@ -592,7 +585,6 @@
           }
 
           clearInterval(pollInterval);
-          hide(progress);
           processBtn.disabled = false;
 
           if (data.data && data.data.status === "completed") {
@@ -602,7 +594,6 @@
         })
         .catch(function (err) {
           clearInterval(pollInterval);
-          hide(progress);
           processBtn.disabled = false;
           showError("video", err.message || "Failed to fetch results.");
         });
