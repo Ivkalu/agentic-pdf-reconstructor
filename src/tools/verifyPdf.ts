@@ -109,6 +109,16 @@ export function createVerifyPdfTool(config: ToolConfig) {
           feedbackPreview: feedback.slice(0, 200),
         });
 
+        // Log to chat history
+        if (config.onChatMessage) {
+          await config.onChatMessage({
+            agent: "analyzer",
+            type: "agent_response",
+            agentMessage: feedback,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         return feedback;
       } catch (err: unknown) {
         const message =

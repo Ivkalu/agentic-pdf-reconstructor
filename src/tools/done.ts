@@ -22,6 +22,18 @@ export function createDoneTool(_config: ToolConfig) {
     }),
     func: async ({ reason }) => {
       log.info("Agent signalled DONE", { reason });
+
+      // Log to chat history
+      if (_config.onChatMessage) {
+        await _config.onChatMessage({
+          agent: "reconstructor",
+          type: "tool_call",
+          toolName: "done",
+          toolInput: reason,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       return `__DONE__: ${reason}`;
     },
   });

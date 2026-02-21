@@ -105,6 +105,17 @@ export function createCompilePdfTool(config: ToolConfig) {
           pdfSizeBytes: pdfSize,
         });
 
+        // Log to chat history
+        if (config.onChatMessage) {
+          await config.onChatMessage({
+            agent: "reconstructor",
+            type: "tool_call",
+            toolName: "compile_pdf",
+            toolInput: "Compiling LaTeX to PDF",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         // Save iteration snapshot
         try {
           const files = await readdir(config.workspacePath);
@@ -129,6 +140,17 @@ export function createCompilePdfTool(config: ToolConfig) {
         exitCode: lastExitCode,
         errorCount: logErrors.length,
       });
+
+      // Log to chat history
+      if (config.onChatMessage) {
+        await config.onChatMessage({
+          agent: "reconstructor",
+          type: "tool_call",
+          toolName: "compile_pdf",
+          toolInput: "Compiling LaTeX to PDF (with errors)",
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       let result = "Compilation FAILED.";
       if (logErrors.length > 0) {

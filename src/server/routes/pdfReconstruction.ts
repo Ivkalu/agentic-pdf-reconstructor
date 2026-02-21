@@ -10,7 +10,7 @@ import { createCompilePdfTool } from "../../tools/compilePdf.js";
 import { createVerifyPdfTool } from "../../tools/verifyPdf.js";
 import { createDoneTool } from "../../tools/done.js";
 import { createChildLogger } from "../../utils/logger.js";
-import { createJob, updateJob, getJob, getJobWorkspacePath } from "../jobStore.js";
+import { createJob, updateJob, getJob, getJobWorkspacePath, appendChatMessage } from "../jobStore.js";
 import type { ToolConfig } from "../../types.js";
 
 const log = createChildLogger({ agent: "api:pdf-reconstruction" });
@@ -99,6 +99,9 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           workspacePath: jobWorkspace,
           originalImagePath: imagePath,
           apiKey,
+          onChatMessage: async (message) => {
+            await appendChatMessage(jobId, message);
+          },
         };
 
         const tools = [
@@ -290,6 +293,31 @@ router.get("/result/:id/iteration/:n", async (req: Request<{ id: string; n: stri
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     log.error("Iteration fetch error", { error: message });
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// GET /api/pdf-reconstruction/result/:id/chat
+router.get("/result/:id/chat", async (req: Request<{ id: string }>, res: Response) => {
+  try {
+    const id = req.params.id;
+    const job = await getJob(id);
+
+    if (!job) {
+      res.status(404).json({ success: false, error: "Job not found" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status: job.status,
+        chatHistory: job.chatHistory ?? [],
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error("Chat history fetch error", { error: message });
     res.status(500).json({ success: false, error: message });
   }
 });

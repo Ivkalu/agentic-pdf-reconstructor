@@ -39,6 +39,17 @@ export function createWriteLatexTool(config: ToolConfig) {
           lines: lineCount,
         });
 
+        // Log to chat history
+        if (config.onChatMessage) {
+          await config.onChatMessage({
+            agent: "reconstructor",
+            type: "tool_call",
+            toolName: "write_latex",
+            toolInput: `Writing LaTeX document (${byteCount} bytes, ${lineCount} lines)`,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         return `Wrote ${byteCount} bytes (${lineCount} lines) to ${texPath}`;
       } catch (err: unknown) {
         const message =

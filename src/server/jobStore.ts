@@ -6,6 +6,16 @@ const log = createChildLogger({ module: "jobStore" });
 
 const WORKSPACE_ROOT = process.env.WORKSPACE_PATH ?? path.join(process.cwd(), "workspace");
 
+export interface ChatMessage {
+  agent: "reconstructor" | "analyzer";
+  type: "tool_call" | "agent_response";
+  toolName?: string;
+  toolInput?: string;
+  toolOutput?: string;
+  agentMessage?: string;
+  timestamp: string;
+}
+
 export interface JobData {
   id: string;
   type: "pdf-reconstruction" | "video-analyzer";
@@ -13,6 +23,7 @@ export interface JobData {
   createdAt: string;
   iterations?: number;
   error?: string;
+  chatHistory?: ChatMessage[];
   videoResult?: {
     totalFrames: number;
     fps: number;
@@ -101,4 +112,21 @@ export async function listJobs(): Promise<JobData[]> {
 
 export function getJobWorkspacePath(jobId: string): string {
   return jobDir(jobId);
+}
+
+export async function appendChatMessage(
+  jobId: string,
+  message: ChatMessage,
+): Promise<void> {
+  const job = await getJob(jobId);
+  if (!job) {
+    throw new Error(`Job ${jobId} not found`);
+  }
+
+  if (!job.chatHistory) {
+    job.chatHistory = [];
+  }
+
+  job.chatHistory.push(message);
+  await writeFile(jobJsonPath(jobId), JSON.stringify(job, null, 2), "utf-8");
 }

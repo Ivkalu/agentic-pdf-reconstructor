@@ -204,8 +204,10 @@
       resetPanelState("pdf");
 
       if (job.status === "processing") {
+        startChatDisplay(job.id);
         pollPdfResult(job.id);
       } else if (job.status === "completed") {
+        loadChatOnce(job.id);
         fetch("/api/pdf-reconstruction/result/" + encodeURIComponent(job.id))
           .then(function (res) { return res.json(); })
           .then(function (data) {
@@ -219,6 +221,7 @@
             showError("pdf", err.message || "Failed to load job result.");
           });
       } else if (job.status === "failed") {
+        loadChatOnce(job.id);
         showError("pdf", job.error || "Job failed");
       }
     } else if (job.type === "video-analyzer") {
@@ -244,6 +247,108 @@
         showError("video", job.error || "Job failed");
       }
     }
+  }
+
+  // ───── Chat History (inline) ─────
+
+  var pdfChatSection = $("#pdf-chat-section");
+  var pdfChatEmpty = $("#pdf-chat-empty");
+  var pdfChatList = $("#pdf-chat-list");
+  var chatPollInterval = null;
+  var chatCurrentJobId = null;
+
+  function startChatDisplay(jobId) {
+    if (chatPollInterval) {
+      clearInterval(chatPollInterval);
+      chatPollInterval = null;
+    }
+    chatCurrentJobId = jobId;
+    pdfChatList.innerHTML = "";
+    show(pdfChatEmpty);
+    hide(pdfChatList);
+    show(pdfChatSection);
+    fetchAndRenderChat(jobId);
+    chatPollInterval = setInterval(function () {
+      if (chatCurrentJobId !== jobId) return;
+      fetchAndRenderChat(jobId);
+    }, 3000);
+  }
+
+  function stopChatPolling() {
+    if (chatPollInterval) {
+      clearInterval(chatPollInterval);
+      chatPollInterval = null;
+    }
+  }
+
+  function loadChatOnce(jobId) {
+    stopChatPolling();
+    chatCurrentJobId = jobId;
+    pdfChatList.innerHTML = "";
+    show(pdfChatEmpty);
+    hide(pdfChatList);
+    show(pdfChatSection);
+    fetchAndRenderChat(jobId);
+  }
+
+  function fetchAndRenderChat(jobId) {
+    fetch("/api/pdf-reconstruction/result/" + encodeURIComponent(jobId) + "/chat")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (!data.success) return;
+        renderChatHistory(data.data.chatHistory || []);
+      })
+      .catch(function () {});
+  }
+
+  function renderChatHistory(messages) {
+    pdfChatList.innerHTML = "";
+
+    if (!messages || messages.length === 0) {
+      show(pdfChatEmpty);
+      hide(pdfChatList);
+      return;
+    }
+
+    hide(pdfChatEmpty);
+    show(pdfChatList);
+
+    messages.forEach(function (msg) {
+      var div = document.createElement("div");
+      div.className = "chat-msg chat-msg--" + msg.agent;
+
+      var header = document.createElement("div");
+      header.className = "chat-msg__header";
+
+      var agentBadge = document.createElement("span");
+      agentBadge.className = "chat-msg__agent";
+      agentBadge.textContent = msg.agent === "reconstructor" ? "Reconstructor" : "Analyzer";
+      header.appendChild(agentBadge);
+
+      if (msg.type === "tool_call" && msg.toolName) {
+        var toolBadge = document.createElement("span");
+        toolBadge.className = "chat-msg__tool";
+        toolBadge.textContent = msg.toolName;
+        header.appendChild(toolBadge);
+      }
+
+      var time = document.createElement("span");
+      time.className = "chat-msg__time";
+      var d = new Date(msg.timestamp);
+      time.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      header.appendChild(time);
+
+      div.appendChild(header);
+
+      var body = document.createElement("div");
+      body.className = "chat-msg__body";
+      body.textContent = msg.type === "tool_call" ? (msg.toolInput || "") : (msg.agentMessage || "");
+      div.appendChild(body);
+
+      pdfChatList.appendChild(div);
+    });
+
+    pdfChatList.lastElementChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
   $("#jobs-refresh-btn").addEventListener("click", loadJobHistory);
@@ -304,6 +409,7 @@
         if (!data.success) {
           throw new Error(data.error || "Upload failed");
         }
+        startChatDisplay(data.data.jobId);
         pollPdfResult(data.data.jobId);
         // Refresh job history after starting a new job
         loadJobHistory();
@@ -325,6 +431,8 @@
         .then(function (data) {
           if (!data.success && data.error) {
             clearInterval(pollInterval);
+            stopChatPolling();
+            fetchAndRenderChat(jobId);
             processBtn.disabled = false;
             showError("pdf", data.error);
             loadJobHistory();
@@ -336,6 +444,8 @@
           }
 
           clearInterval(pollInterval);
+          stopChatPolling();
+          fetchAndRenderChat(jobId);
           processBtn.disabled = false;
 
           if (data.data && data.data.status === "completed") {
@@ -345,6 +455,7 @@
         })
         .catch(function (err) {
           clearInterval(pollInterval);
+          stopChatPolling();
           processBtn.disabled = false;
           showError("pdf", err.message || "Failed to fetch results.");
         });
