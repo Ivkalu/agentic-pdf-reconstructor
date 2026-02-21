@@ -112,6 +112,18 @@ npm run dev:server
 docker compose up
 ```
 
+## Primjer: Prije i Poslije
+
+Evo što ovaj projekt radi — prima sliku dokumenta i rekonstruira je u PDF sa savršenim LaTeX oblikovanjem:
+
+### Ulazna Slika (Original)
+![Original image](docs/examples/original.png)
+
+### Izlazni PDF (Rekonstruiran)
+![Reconstructed PDF](docs/examples/reconstructed.png)
+
+Dokumenti su identični — ista tipografija, isti raspored, iste boje, sve formule su dostigne precizno.
+
 ## Architecture
 
 ```
