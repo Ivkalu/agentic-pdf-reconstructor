@@ -24,14 +24,20 @@ function getMimeType(filePath: string): string {
 
 async function main() {
   const inputImagePath = process.argv[2];
+  const targetLanguage = process.argv[3]; // optional: e.g. "Croatian", "German", "French"
 
   if (!inputImagePath) {
-    logger.error("Usage: node dist/index.js <input-image-path>");
+    logger.error("Usage: node dist/index.js <input-image-path> [target-language]");
+    logger.error("  Example: node dist/index.js page.png");
+    logger.error("  Example: node dist/index.js page.png Croatian");
     process.exit(1);
   }
 
   const resolvedImagePath = path.resolve(inputImagePath);
-  logger.info("PDF Reconstructor starting", { inputImagePath: resolvedImagePath });
+  logger.info("PDF Reconstructor starting", {
+    inputImagePath: resolvedImagePath,
+    targetLanguage: targetLanguage ?? "none (reconstruct only)",
+  });
 
   // Validate the input image exists
   try {
@@ -70,6 +76,7 @@ async function main() {
     workspacePath,
     originalImagePath: resolvedImagePath,
     apiKey,
+    targetLanguage,
   };
 
   // Create all tools
@@ -86,13 +93,15 @@ async function main() {
   });
 
   // Run the graph
-  logger.info("Starting reconstruction workflow");
+  logger.info("Starting reconstruction workflow", { targetLanguage: targetLanguage ?? "none" });
   const finalState = await runGraph({
     apiKey,
     tools,
     imageBase64,
     imageMimeType,
     originalImagePath: resolvedImagePath,
+    workspacePath,
+    targetLanguage,
   });
 
   // Copy final PDF to output directory
@@ -114,6 +123,9 @@ async function main() {
   logger.info("=== Reconstruction Summary ===");
   logger.info(`Iterations: ${finalState.iterationCount}`);
   logger.info(`Done: ${finalState.isDone}`);
+  if (targetLanguage) {
+    logger.info(`Translation: ${finalState.translationDone ? "completed" : "skipped"} → ${targetLanguage}`);
+  }
   logger.info(`Total messages: ${finalState.messages.length}`);
   logger.info(`Output: ${outputPdf}`);
   logger.info("=== End ===");

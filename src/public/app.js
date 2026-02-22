@@ -322,7 +322,10 @@
 
       var agentBadge = document.createElement("span");
       agentBadge.className = "chat-msg__agent";
-      agentBadge.textContent = msg.agent === "reconstructor" ? "Reconstructor" : "Analyzer";
+      agentBadge.textContent =
+        msg.agent === "reconstructor" ? "Reconstructor" :
+        msg.agent === "translator" ? "Translator" :
+        "Analyzer";
       header.appendChild(agentBadge);
 
       if (msg.type === "tool_call" && msg.toolName) {
@@ -463,6 +466,10 @@
     formData.append("provider", provider);
     if (!hasEnvKey && userApiKey) {
       formData.append("apiKey", userApiKey);
+    }
+    var targetLang = $("#pdf-target-lang").value;
+    if (targetLang) {
+      formData.append("targetLanguage", targetLang);
     }
 
     fetch("/api/pdf-reconstruction/upload", {

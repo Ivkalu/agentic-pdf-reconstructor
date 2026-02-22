@@ -84,6 +84,12 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
       : process.env.ANTHROPIC_API_KEY;
     const apiKey = envKey ?? req.body.apiKey ?? "";
 
+    // Optional target language for translation (empty string or missing = reconstruct only)
+    const targetLanguage: string | undefined =
+      typeof req.body.targetLanguage === "string" && req.body.targetLanguage.trim()
+        ? req.body.targetLanguage.trim()
+        : undefined;
+
     if (!apiKey) {
       const providerName = provider === "gemini" ? "Gemini (GEMINI_API_KEY)" : "Anthropic (ANTHROPIC_API_KEY)";
       res.status(400).json({
@@ -100,7 +106,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
     const imagePath = req.file.path;
     const imageMimeType = getMimeType(imagePath);
 
-    log.info("PDF reconstruction job started", { jobId, imagePath, provider });
+    log.info("PDF reconstruction job started", { jobId, imagePath, provider, targetLanguage: targetLanguage ?? "none" });
 
     await createJob(jobId, "pdf-reconstruction");
 
@@ -121,6 +127,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           originalImagePath: imagePath,
           apiKey,
           provider,
+          targetLanguage,
           onChatMessage: async (message) => {
             await appendChatMessage(jobId, message);
           },
@@ -141,6 +148,11 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           imageBase64,
           imageMimeType,
           originalImagePath: imagePath,
+          workspacePath: jobWorkspace,
+          targetLanguage,
+          onChatMessage: async (message) => {
+            await appendChatMessage(jobId, message);
+          },
         });
 
         await updateJob(jobId, {

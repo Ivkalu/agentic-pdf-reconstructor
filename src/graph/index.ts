@@ -8,14 +8,18 @@ import {
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { BaseMessage, AIMessage, SystemMessage, HumanMessage } from "@langchain/core/messages";
 import type { DynamicStructuredTool } from "@langchain/core/tools";
+import { readFile, writeFile } from "node:fs/promises";
+import { execSync } from "node:child_process";
+import path from "node:path";
 import { createReconstructorModel, SYSTEM_PROMPT } from "../agents/reconstructor.js";
+import { translateDocument } from "../agents/translator.js";
 import { createChildLogger } from "../utils/logger.js";
 
 const log = createChildLogger({ agent: "graph" });
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
-// Define the graph state with messages, iteration tracking, and done flag
+// Define the graph state with messages, iteration tracking, done flag, and translation fields
 export const GraphState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
     reducer: messagesStateReducer,
@@ -29,9 +33,22 @@ export const GraphState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => false,
   }),
+  targetLanguage: Annotation<string | undefined>({
+    reducer: (_prev, next) => next,
+    default: () => undefined,
+  }),
+  translationDone: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
 });
 
 export type GraphStateType = typeof GraphState.State;
+
+// Returns true when translation is requested but not yet performed
+function shouldTranslate(state: GraphStateType): boolean {
+  return !!(state.targetLanguage && !state.translationDone);
+}
 
 // Routing logic after the agent node
 function routeAfterAgent(
@@ -41,8 +58,8 @@ function routeAfterAgent(
   const { messages, iterationCount, isDone } = state;
 
   if (isDone) {
-    log.info("Agent signalled done, ending workflow", { iterationCount });
-    return END;
+    log.info("Agent signalled done, ending reconstruction", { iterationCount });
+    return shouldTranslate(state) ? "translate" : END;
   }
 
   if (iterationCount >= maxIterations) {
@@ -50,7 +67,7 @@ function routeAfterAgent(
       iterationCount,
       maxIterations,
     });
-    return END;
+    return shouldTranslate(state) ? "translate" : END;
   }
 
   const lastMessage = messages[messages.length - 1];
@@ -60,15 +77,6 @@ function routeAfterAgent(
     lastMessage.tool_calls &&
     lastMessage.tool_calls.length > 0
   ) {
-    // Check if the done tool was called
-    const hasDoneCall = lastMessage.tool_calls.some(
-      (tc) => tc.name === "done",
-    );
-
-    if (hasDoneCall) {
-      log.info("Done tool detected in tool calls, routing to tools then ending");
-    }
-
     return "tools";
   }
 
@@ -76,14 +84,14 @@ function routeAfterAgent(
   log.info("Agent produced no tool calls, ending workflow", {
     iterationCount,
   });
-  return END;
+  return shouldTranslate(state) ? "translate" : END;
 }
 
 // Check after tool execution if done was called
 function routeAfterTools(state: GraphStateType): string {
   if (state.isDone) {
-    log.info("Done flag set after tool execution, ending");
-    return END;
+    log.info("Done flag set after tool execution, ending reconstruction");
+    return shouldTranslate(state) ? "translate" : END;
   }
   return "agent";
 }
@@ -96,6 +104,9 @@ export interface BuildGraphOptions {
   imageBase64: string;
   imageMimeType: string;
   provider?: "anthropic" | "gemini";
+  targetLanguage?: string;
+  workspacePath?: string;
+  onChatMessage?: (message: any) => Promise<void>;
 }
 
 export function buildGraph(options: BuildGraphOptions) {
@@ -106,6 +117,9 @@ export function buildGraph(options: BuildGraphOptions) {
     imageBase64,
     imageMimeType,
     provider,
+    targetLanguage,
+    workspacePath,
+    onChatMessage,
   } = options;
 
   log.info("Building LangGraph workflow", {
@@ -113,6 +127,7 @@ export function buildGraph(options: BuildGraphOptions) {
     toolNames: tools.map((t) => t.name),
     maxIterations,
     provider: provider ?? "anthropic",
+    targetLanguage: targetLanguage ?? "none",
   });
 
   const reconstructorModel = createReconstructorModel({ apiKey, tools, provider });
@@ -185,18 +200,99 @@ export function buildGraph(options: BuildGraphOptions) {
     };
   }
 
+  // Translation node — runs after reconstruction completes when targetLanguage is set
+  async function translationNode(
+    state: GraphStateType,
+  ): Promise<Partial<GraphStateType>> {
+    const lang = state.targetLanguage;
+
+    if (!lang || !workspacePath) {
+      log.info("Translation skipped (no target language or workspace path configured)");
+      return { translationDone: true };
+    }
+
+    log.info("Starting translation phase", { targetLanguage: lang, workspacePath });
+
+    const texPath = path.join(workspacePath, "document.tex");
+
+    try {
+      // Read the reconstructed LaTeX
+      const latexContent = await readFile(texPath, "utf-8");
+      log.info("LaTeX file read for translation", { bytes: latexContent.length });
+
+      // Invoke the translator agent
+      const translated = await translateDocument(latexContent, lang, apiKey, provider);
+      log.info("LaTeX translated successfully", {
+        targetLanguage: lang,
+        originalBytes: latexContent.length,
+        translatedBytes: translated.length,
+      });
+
+      // Write translated LaTeX back to disk
+      await writeFile(texPath, translated, "utf-8");
+      log.info("Translated LaTeX written to disk", { texPath });
+
+      // Compile the translated document (run pdflatex twice for references/TOC)
+      const pdflatexCmd = [
+        "pdflatex",
+        "-interaction=nonstopmode",
+        "-halt-on-error",
+        `-output-directory=${workspacePath}`,
+        texPath,
+      ].join(" ");
+
+      try {
+        execSync(pdflatexCmd, { cwd: workspacePath, timeout: 60_000, stdio: "pipe" });
+        execSync(pdflatexCmd, { cwd: workspacePath, timeout: 60_000, stdio: "pipe" });
+        log.info("Translated PDF compiled successfully");
+      } catch (compileErr) {
+        log.warn("Translated PDF compilation had errors (document may still be usable)", {
+          error: String(compileErr).slice(0, 500),
+        });
+      }
+
+      if (onChatMessage) {
+        await onChatMessage({
+          agent: "translator",
+          type: "agent_response",
+          agentMessage: `Document successfully translated to ${lang} and recompiled.`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error("Translation phase failed", { error: message });
+
+      if (onChatMessage) {
+        await onChatMessage({
+          agent: "translator",
+          type: "agent_response",
+          agentMessage: `Translation to ${lang} encountered an error: ${message}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    return { translationDone: true };
+  }
+
   // Build the graph
   const graph = new StateGraph(GraphState)
     .addNode("agent", agentNode)
     .addNode("tools", toolsNode)
+    .addNode("translate", translationNode)
     .addEdge(START, "agent")
     .addConditionalEdges("agent", (state) =>
       routeAfterAgent(state, maxIterations),
     )
     .addConditionalEdges("tools", routeAfterTools)
+    .addEdge("translate", END)
     .compile();
 
-  log.info("LangGraph workflow compiled");
+  log.info("LangGraph workflow compiled", {
+    translationEnabled: !!targetLanguage,
+    targetLanguage: targetLanguage ?? "none",
+  });
 
   return graph;
 }
@@ -206,7 +302,7 @@ export interface RunGraphOptions extends BuildGraphOptions {
 }
 
 export async function runGraph(options: RunGraphOptions) {
-  const { imageBase64, imageMimeType } = options;
+  const { imageBase64, imageMimeType, targetLanguage } = options;
 
   const graph = buildGraph(options);
 
@@ -232,17 +328,21 @@ export async function runGraph(options: RunGraphOptions) {
   log.info("Starting graph execution", {
     initialMessageCount: initialMessages.length,
     imageSize: imageBase64.length,
+    targetLanguage: targetLanguage ?? "none",
   });
 
   const finalState = await graph.invoke({
     messages: initialMessages,
     iterationCount: 0,
     isDone: false,
+    targetLanguage: targetLanguage,
+    translationDone: false,
   });
 
   log.info("Graph execution complete", {
     totalIterations: finalState.iterationCount,
     isDone: finalState.isDone,
+    translationDone: finalState.translationDone,
     totalMessages: finalState.messages.length,
   });
 
