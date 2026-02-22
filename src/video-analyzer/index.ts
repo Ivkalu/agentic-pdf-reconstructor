@@ -7,7 +7,7 @@ import { extractFrames, getVideoFps } from "./frameExtractor.js";
 import { ocrAllFrames } from "./ocr.js";
 import { buildTfidfMatrix } from "./tfidf.js";
 import { clusterKMeans, clusterDBSCAN } from "./clustering.js";
-import { selectRepresentative } from "./representativeSelection.js";
+import { selectRepresentative, selectRepresentativeByTime } from "./representativeSelection.js";
 import type {
   VideoAnalyzerOptions,
   VideoAnalyzerResult,
@@ -148,6 +148,7 @@ export async function analyzeVideo(
     dbscanEps,
     lang = "eng",
     workers = 8,
+    centerMethod = "tfidf",
   } = options;
 
   const resolvedVideoPath = path.resolve(videoPath);
@@ -285,11 +286,10 @@ export async function analyzeVideo(
     const groupFramePaths = indices.map((i) => frames[i]);
     const groupTexts = indices.map((i) => texts[i]);
 
-    // Select representative frame (centroid-closest in TF-IDF space)
-    const representativeFrame = selectRepresentative(
-      groupFramePaths,
-      groupTexts,
-    );
+    // Select representative frame
+    const representativeFrame = centerMethod === "time"
+      ? selectRepresentativeByTime(groupFramePaths)
+      : selectRepresentative(groupFramePaths, groupTexts);
 
     const ext = path.extname(representativeFrame);
     const reprDest = path.join(representativeDir, `${groupName}${ext}`);

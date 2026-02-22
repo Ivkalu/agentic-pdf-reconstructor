@@ -599,6 +599,15 @@
 
   updateClusterFields();
 
+  // Center method toggle — switches between TF-IDF text similarity and time (middle frame)
+  var centerToggleBtn = $("#video-center-toggle");
+  var currentCenterMethod = "tfidf";
+
+  centerToggleBtn.addEventListener("click", function () {
+    currentCenterMethod = currentCenterMethod === "tfidf" ? "time" : "tfidf";
+    centerToggleBtn.textContent = currentCenterMethod === "tfidf" ? "Text Similarity" : "Middle by Time";
+  });
+
   var videoDropzone = setupDropzone({
     dropzoneSelector: "#video-dropzone",
     fileInputSelector: "#video-file-input",
@@ -651,6 +660,7 @@
     if (currentClusterMethod === "kmeans" && clusters) params.push("nClusters=" + encodeURIComponent(clusters));
     if (currentClusterMethod === "dbscan" && eps) params.push("dbscanEps=" + encodeURIComponent(eps));
     if (lang) params.push("lang=" + encodeURIComponent(lang));
+    if (currentCenterMethod === "time") params.push("centerMethod=time");
 
     var qs = params.length > 0 ? "?" + params.join("&") : "";
 

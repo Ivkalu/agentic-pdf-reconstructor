@@ -1,6 +1,21 @@
 import { buildTfidfMatrix, cosineSimilarity } from "./tfidf.js";
 
 /**
+ * Select the middle frame by time (chronological order).
+ * Frame paths must be in chronological order (as they come from the pipeline).
+ *
+ * @param groupFramePaths - Frame paths in this group, in chronological order
+ * @returns The path of the middle frame
+ */
+export function selectRepresentativeByTime(groupFramePaths: string[]): string {
+  if (groupFramePaths.length === 0) {
+    throw new Error("Cannot select representative from empty group");
+  }
+  const midIdx = Math.floor((groupFramePaths.length - 1) / 2);
+  return groupFramePaths[midIdx];
+}
+
+/**
  * Select the most representative frame from a group.
  *
  * Instead of picking the middle frame by time, this picks the frame whose

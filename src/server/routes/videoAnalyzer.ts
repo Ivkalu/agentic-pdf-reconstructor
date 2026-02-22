@@ -61,8 +61,9 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
     const dbscanEps = req.query.dbscanEps ? parseFloat(req.query.dbscanEps as string) : undefined;
     const lang = (req.query.lang as string) ?? "eng";
     const workers = req.query.workers ? parseInt(req.query.workers as string, 10) : 4;
+    const centerMethod = req.query.centerMethod === "time" ? "time" : "tfidf";
 
-    log.info("Video analyzer job started", { jobId, videoPath, nClusters, dbscanEps, lang, workers });
+    log.info("Video analyzer job started", { jobId, videoPath, nClusters, dbscanEps, lang, workers, centerMethod });
 
     await createJob(jobId, "video-analyzer");
 
@@ -81,6 +82,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           dbscanEps,
           lang,
           workers,
+          centerMethod,
         });
 
         await updateJob(jobId, {

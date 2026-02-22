@@ -4,6 +4,7 @@ export interface VideoAnalyzerOptions {
   dbscanEps?: number;
   lang?: string;
   workers?: number;
+  centerMethod?: "tfidf" | "time";
 }
 
 export interface GroupInfo {
