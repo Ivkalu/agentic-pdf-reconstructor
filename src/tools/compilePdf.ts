@@ -105,17 +105,6 @@ export function createCompilePdfTool(config: ToolConfig) {
           pdfSizeBytes: pdfSize,
         });
 
-        // Log to chat history
-        if (config.onChatMessage) {
-          await config.onChatMessage({
-            agent: "reconstructor",
-            type: "tool_call",
-            toolName: "compile_pdf",
-            toolInput: "Compiling LaTeX to PDF",
-            timestamp: new Date().toISOString(),
-          });
-        }
-
         // Save iteration snapshot
         try {
           const files = await readdir(config.workspacePath);
@@ -132,6 +121,19 @@ export function createCompilePdfTool(config: ToolConfig) {
         if (logErrors.length > 0) {
           result += `\n\nWarnings from LaTeX log:\n${logErrors.join("\n---\n")}`;
         }
+
+        // Log to chat history
+        if (config.onChatMessage) {
+          await config.onChatMessage({
+            agent: "reconstructor",
+            type: "tool_call",
+            toolName: "compile_pdf",
+            toolInput: "Compiling LaTeX to PDF",
+            toolOutput: result,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
         return result;
       }
 
@@ -141,17 +143,6 @@ export function createCompilePdfTool(config: ToolConfig) {
         errorCount: logErrors.length,
       });
 
-      // Log to chat history
-      if (config.onChatMessage) {
-        await config.onChatMessage({
-          agent: "reconstructor",
-          type: "tool_call",
-          toolName: "compile_pdf",
-          toolInput: "Compiling LaTeX to PDF (with errors)",
-          timestamp: new Date().toISOString(),
-        });
-      }
-
       let result = "Compilation FAILED.";
       if (logErrors.length > 0) {
         result += `\n\nLaTeX errors:\n${logErrors.join("\n---\n")}`;
@@ -159,6 +150,18 @@ export function createCompilePdfTool(config: ToolConfig) {
         result += `\n\nstderr: ${lastStderr.slice(0, 2000)}`;
       } else {
         result += "\n\nNo detailed error information available. Check that the .tex file exists and is valid LaTeX.";
+      }
+
+      // Log to chat history
+      if (config.onChatMessage) {
+        await config.onChatMessage({
+          agent: "reconstructor",
+          type: "tool_call",
+          toolName: "compile_pdf",
+          toolInput: "Compiling LaTeX to PDF (with errors)",
+          toolOutput: result,
+          timestamp: new Date().toISOString(),
+        });
       }
 
       return result;

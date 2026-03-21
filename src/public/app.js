@@ -317,6 +317,15 @@
       var div = document.createElement("div");
       div.className = "chat-msg chat-msg--" + msg.agent;
 
+      // Determine summary and detail content
+      var summary = msg.type === "tool_call" ? (msg.toolInput || "") : "";
+      var detail = msg.type === "tool_call" ? (msg.toolOutput || "") : (msg.agentMessage || "");
+      var hasDetail = detail && detail !== summary;
+
+      if (hasDetail) {
+        div.classList.add("chat-msg--expandable");
+      }
+
       var header = document.createElement("div");
       header.className = "chat-msg__header";
 
@@ -332,6 +341,13 @@
         header.appendChild(toolBadge);
       }
 
+      if (hasDetail) {
+        var chevron = document.createElement("span");
+        chevron.className = "chat-msg__chevron";
+        chevron.textContent = "\u25B6";
+        header.appendChild(chevron);
+      }
+
       var time = document.createElement("span");
       time.className = "chat-msg__time";
       var d = new Date(msg.timestamp);
@@ -340,10 +356,23 @@
 
       div.appendChild(header);
 
+      // Summary line (always visible)
       var body = document.createElement("div");
       body.className = "chat-msg__body";
-      body.textContent = msg.type === "tool_call" ? (msg.toolInput || "") : (msg.agentMessage || "");
+      body.textContent = summary || detail;
       div.appendChild(body);
+
+      // Expandable detail section
+      if (hasDetail) {
+        var detailDiv = document.createElement("div");
+        detailDiv.className = "chat-msg__detail";
+        detailDiv.textContent = detail;
+        div.appendChild(detailDiv);
+
+        div.addEventListener("click", function () {
+          div.classList.toggle("chat-msg--expanded");
+        });
+      }
 
       pdfChatList.appendChild(div);
     });

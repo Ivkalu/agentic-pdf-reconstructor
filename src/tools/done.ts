@@ -23,6 +23,8 @@ export function createDoneTool(_config: ToolConfig) {
     func: async ({ reason }) => {
       log.info("Agent signalled DONE", { reason });
 
+      const result = `__DONE__: ${reason}`;
+
       // Log to chat history
       if (_config.onChatMessage) {
         await _config.onChatMessage({
@@ -30,11 +32,12 @@ export function createDoneTool(_config: ToolConfig) {
           type: "tool_call",
           toolName: "done",
           toolInput: reason,
+          toolOutput: result,
           timestamp: new Date().toISOString(),
         });
       }
 
-      return `__DONE__: ${reason}`;
+      return result;
     },
   });
 }

@@ -22,7 +22,10 @@ export const SYSTEM_PROMPT = `You are an expert LaTeX document reconstructor wit
 - When fixing issues from analyzer feedback, focus on the most impactful differences first.
 - If compilation fails, read the error messages carefully and fix the LaTeX syntax.
 - Use read_latex to review your current file if you need to recall what you wrote.
-- Do not get stuck in a loop making the same changes — if progress stalls after several attempts, call done with an explanation.`;
+- Do not get stuck in a loop making the same changes — if progress stalls after several attempts, call done with an explanation.
+
+## CRITICAL RULE
+You must ALWAYS respond with at least one tool call. NEVER respond with only text and no tool call. When you are finished, you MUST call the done tool — do not just explain your reasoning without a tool call. Every single response must include a tool invocation.`;
 
 export interface CreateReconstructorOptions {
   apiKey: string;

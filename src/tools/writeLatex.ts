@@ -39,6 +39,8 @@ export function createWriteLatexTool(config: ToolConfig) {
           lines: lineCount,
         });
 
+        const result = `Wrote ${byteCount} bytes (${lineCount} lines) to ${texPath}`;
+
         // Log to chat history
         if (config.onChatMessage) {
           await config.onChatMessage({
@@ -46,11 +48,12 @@ export function createWriteLatexTool(config: ToolConfig) {
             type: "tool_call",
             toolName: "write_latex",
             toolInput: `Writing LaTeX document (${byteCount} bytes, ${lineCount} lines)`,
+            toolOutput: result,
             timestamp: new Date().toISOString(),
           });
         }
 
-        return `Wrote ${byteCount} bytes (${lineCount} lines) to ${texPath}`;
+        return result;
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Unknown write error";
