@@ -43,11 +43,13 @@ export function createWriteLatexTool(config: ToolConfig) {
 
         // Log to chat history
         if (config.onChatMessage) {
+          const iter = config.iterationContext;
+          const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
           await config.onChatMessage({
             agent: "reconstructor",
             type: "tool_call",
             toolName: "write_latex",
-            toolInput: `Writing LaTeX document (${byteCount} bytes, ${lineCount} lines)`,
+            toolInput: `${prefix}Writing LaTeX document (${byteCount} bytes, ${lineCount} lines)`,
             toolOutput: result,
             timestamp: new Date().toISOString(),
           });

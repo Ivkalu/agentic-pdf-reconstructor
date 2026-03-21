@@ -59,11 +59,13 @@ export function createReadLatexTool(config: ToolConfig) {
 
         // Log to chat history
         if (config.onChatMessage) {
+          const iter = config.iterationContext;
+          const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
           await config.onChatMessage({
             agent: "reconstructor",
             type: "tool_call",
             toolName: "read_latex",
-            toolInput: `Reading LaTeX file (offset: ${start}, limit: ${limit ?? "all"})`,
+            toolInput: `${prefix}Reading LaTeX file (offset: ${start}, limit: ${limit ?? "all"})`,
             toolOutput: numbered,
             timestamp: new Date().toISOString(),
           });

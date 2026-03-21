@@ -27,11 +27,13 @@ export function createDoneTool(_config: ToolConfig) {
 
       // Log to chat history
       if (_config.onChatMessage) {
+        const iter = _config.iterationContext;
+        const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
         await _config.onChatMessage({
           agent: "reconstructor",
           type: "tool_call",
           toolName: "done",
-          toolInput: reason,
+          toolInput: `${prefix}${reason}`,
           toolOutput: result,
           timestamp: new Date().toISOString(),
         });

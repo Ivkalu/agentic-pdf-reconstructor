@@ -10,6 +10,7 @@ import { BaseMessage, AIMessage, SystemMessage, HumanMessage } from "@langchain/
 import type { DynamicStructuredTool } from "@langchain/core/tools";
 import { createReconstructorModel, SYSTEM_PROMPT } from "../agents/reconstructor.js";
 import { createChildLogger } from "../utils/logger.js";
+import type { ToolConfig } from "../types.js";
 
 const log = createChildLogger({ agent: "graph" });
 
@@ -131,6 +132,7 @@ export interface BuildGraphOptions {
   systemPrompt?: string;
   imageBase64: string;
   imageMimeType: string;
+  toolConfig?: ToolConfig;
   onChatMessage?: (message: {
     agent: string;
     type: string;
@@ -149,6 +151,7 @@ export function buildGraph(options: BuildGraphOptions) {
     maxIterations = DEFAULT_MAX_ITERATIONS,
     imageBase64,
     imageMimeType,
+    toolConfig,
     onChatMessage,
   } = options;
 
@@ -216,6 +219,11 @@ export function buildGraph(options: BuildGraphOptions) {
       inputTokens,
       outputTokens,
     });
+
+    // Update iteration context so tools can include it in their chat messages
+    if (toolConfig) {
+      toolConfig.iterationContext = { current: newIteration, max: maxIterations };
+    }
 
     return {
       messages: [response],

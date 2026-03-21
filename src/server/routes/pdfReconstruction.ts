@@ -123,6 +123,7 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
         const finalState = await runGraph({
           apiKey,
           tools,
+          toolConfig,
           imageBase64,
           imageMimeType,
           originalImagePath: imagePath,

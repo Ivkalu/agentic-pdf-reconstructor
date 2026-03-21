@@ -124,11 +124,13 @@ export function createCompilePdfTool(config: ToolConfig) {
 
         // Log to chat history
         if (config.onChatMessage) {
+          const iter = config.iterationContext;
+          const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
           await config.onChatMessage({
             agent: "reconstructor",
             type: "tool_call",
             toolName: "compile_pdf",
-            toolInput: "Compiling LaTeX to PDF",
+            toolInput: `${prefix}Compiling LaTeX to PDF`,
             toolOutput: result,
             timestamp: new Date().toISOString(),
           });
@@ -154,11 +156,13 @@ export function createCompilePdfTool(config: ToolConfig) {
 
       // Log to chat history
       if (config.onChatMessage) {
+        const iter = config.iterationContext;
+        const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
         await config.onChatMessage({
           agent: "reconstructor",
           type: "tool_call",
           toolName: "compile_pdf",
-          toolInput: "Compiling LaTeX to PDF (with errors)",
+          toolInput: `${prefix}Compiling LaTeX to PDF (with errors)`,
           toolOutput: result,
           timestamp: new Date().toISOString(),
         });

@@ -118,11 +118,13 @@ export function createVerifyPdfTool(config: ToolConfig) {
 
         // Log verify_pdf tool call to chat history
         if (config.onChatMessage) {
+          const iter = config.iterationContext;
+          const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
           await config.onChatMessage({
             agent: "reconstructor",
             type: "tool_call",
             toolName: "verify_pdf",
-            toolInput: `Verifying PDF against original (round ${feedbackHistory.length})`,
+            toolInput: `${prefix}Verifying PDF against original (round ${feedbackHistory.length})`,
             toolOutput: `Analyzer invoked — ${result.feedback.length} chars of feedback`,
             timestamp: new Date().toISOString(),
           });
