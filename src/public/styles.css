@@ -734,6 +734,19 @@ body {
   border-color: #bbf7d0;
 }
 
+.chat-msg--stop {
+  background: #fef3c7;
+  border-color: #fcd34d;
+}
+
+.chat-msg--stop .chat-msg__agent {
+  color: #b45309;
+}
+
+.chat-msg--stop .chat-msg__body {
+  font-weight: 600;
+}
+
 .chat-msg__header {
   display: flex;
   align-items: center;

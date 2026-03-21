@@ -120,14 +120,33 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           originalImagePath: imagePath,
         });
 
+        const stopReason = finalState.stopReason ?? "unknown";
+
+        // Emit a final chat message showing why the agent stopped
+        const stopLabels: Record<string, string> = {
+          done_tool: "Agent finished — called done tool",
+          max_iterations: "Agent stopped — reached maximum iterations",
+          no_tool_calls: "Agent stopped — no tool calls in last response",
+          unknown: "Agent stopped — unknown reason",
+        };
+        await appendChatMessage(jobId, {
+          agent: "reconstructor",
+          type: "agent_response",
+          agentMessage: stopLabels[stopReason] ?? stopLabels.unknown,
+          toolOutput: `Stop reason: ${stopReason}, Iterations: ${finalState.iterationCount}`,
+          timestamp: new Date().toISOString(),
+        });
+
         await updateJob(jobId, {
           status: "completed",
           iterations: finalState.iterationCount,
+          stopReason,
         });
 
         log.info("PDF reconstruction job completed", {
           jobId,
           iterations: finalState.iterationCount,
+          stopReason,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

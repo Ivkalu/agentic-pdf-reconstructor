@@ -317,6 +317,14 @@
       var div = document.createElement("div");
       div.className = "chat-msg chat-msg--" + msg.agent;
 
+      // Detect stop-reason messages
+      var isStopMsg = msg.type === "agent_response" &&
+        msg.agentMessage && msg.agentMessage.indexOf("Agent ") === 0 &&
+        (msg.agentMessage.indexOf("stopped") !== -1 || msg.agentMessage.indexOf("finished") !== -1);
+      if (isStopMsg) {
+        div.classList.add("chat-msg--stop");
+      }
+
       // Determine summary and detail content
       var summary = msg.type === "tool_call" ? (msg.toolInput || "") : "";
       var detail = msg.type === "tool_call" ? (msg.toolOutput || "") : (msg.agentMessage || "");

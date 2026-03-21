@@ -22,6 +22,7 @@ export interface JobData {
   status: "processing" | "completed" | "failed";
   createdAt: string;
   iterations?: number;
+  stopReason?: string;
   error?: string;
   chatHistory?: ChatMessage[];
   videoResult?: {

@@ -15,6 +15,8 @@ const log = createChildLogger({ agent: "graph" });
 
 const DEFAULT_MAX_ITERATIONS = 10;
 
+export type StopReason = "done_tool" | "max_iterations" | "no_tool_calls" | null;
+
 // Define the graph state with messages, iteration tracking, and done flag
 export const GraphState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -29,6 +31,10 @@ export const GraphState = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => false,
   }),
+  stopReason: Annotation<StopReason>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
 });
 
 export type GraphStateType = typeof GraphState.State;
@@ -42,7 +48,7 @@ function routeAfterAgent(
 
   if (isDone) {
     log.info("Agent signalled done, ending workflow", { iterationCount });
-    return END;
+    return "stop";
   }
 
   if (iterationCount >= maxIterations) {
@@ -50,7 +56,7 @@ function routeAfterAgent(
       iterationCount,
       maxIterations,
     });
-    return END;
+    return "stop";
   }
 
   const lastMessage = messages[messages.length - 1];
@@ -76,16 +82,32 @@ function routeAfterAgent(
   log.info("Agent produced no tool calls, ending workflow", {
     iterationCount,
   });
-  return END;
+  return "stop";
 }
 
 // Check after tool execution if done was called
 function routeAfterTools(state: GraphStateType): string {
   if (state.isDone) {
     log.info("Done flag set after tool execution, ending");
-    return END;
+    return "stop";
   }
   return "agent";
+}
+
+// Determine the stop reason based on state
+function resolveStopReason(state: GraphStateType, maxIterations: number): StopReason {
+  if (state.isDone) return "done_tool";
+
+  const lastMessage = state.messages[state.messages.length - 1];
+  const hasToolCalls =
+    lastMessage instanceof AIMessage &&
+    lastMessage.tool_calls &&
+    lastMessage.tool_calls.length > 0;
+
+  if (state.iterationCount >= maxIterations) return "max_iterations";
+  if (!hasToolCalls) return "no_tool_calls";
+
+  return "max_iterations";
 }
 
 export interface BuildGraphOptions {
@@ -182,15 +204,26 @@ export function buildGraph(options: BuildGraphOptions) {
     };
   }
 
+  // Terminal node that records why the workflow stopped
+  async function stopNode(
+    state: GraphStateType,
+  ): Promise<Partial<GraphStateType>> {
+    const reason = resolveStopReason(state, maxIterations);
+    log.info("Workflow stopping", { stopReason: reason, iteration: state.iterationCount });
+    return { stopReason: reason };
+  }
+
   // Build the graph
   const graph = new StateGraph(GraphState)
     .addNode("agent", agentNode)
     .addNode("tools", toolsNode)
+    .addNode("stop", stopNode)
     .addEdge(START, "agent")
     .addConditionalEdges("agent", (state) =>
       routeAfterAgent(state, maxIterations),
     )
     .addConditionalEdges("tools", routeAfterTools)
+    .addEdge("stop", END)
     .compile();
 
   log.info("LangGraph workflow compiled");
