@@ -145,7 +145,25 @@ export function createVerifyPdfTool(config: ToolConfig) {
         const message =
           err instanceof Error ? err.message : "Unknown verification error";
         log.error("Verification failed", { error: message });
-        return `Error during PDF verification: ${message}`;
+
+        const errorResult = `Error during PDF verification: ${message}`;
+
+        // Always emit error to chat so it's visible
+        if (config.onChatMessage) {
+          const iter = config.iterationContext;
+          const batch = iter && iter.toolsCalled.length > 1 ? ` · ${iter.toolsCalled.join(" → ")}` : "";
+          const prefix = iter ? `[${iter.current}/${iter.max}${batch}] ` : "";
+          await config.onChatMessage({
+            agent: "reconstructor",
+            type: "tool_call",
+            toolName: "verify_pdf",
+            toolInput: `${prefix}Verification failed`,
+            toolOutput: errorResult,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return errorResult;
       }
     },
   });

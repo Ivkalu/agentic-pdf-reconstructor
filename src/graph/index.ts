@@ -221,12 +221,37 @@ export function buildGraph(options: BuildGraphOptions) {
     });
 
     // Update iteration context so tools can include it in their chat messages
+    const toolsCalled =
+      response instanceof AIMessage && response.tool_calls
+        ? response.tool_calls.map((tc) => tc.name)
+        : [];
     if (toolConfig) {
-      const toolsCalled =
-        response instanceof AIMessage && response.tool_calls
-          ? response.tool_calls.map((tc) => tc.name)
-          : [];
       toolConfig.iterationContext = { current: newIteration, max: maxIterations, toolsCalled };
+    }
+
+    // Emit a chat message for text-only iterations (no tool calls) so they're
+    // visible in the chat history. Tool-calling iterations are made visible by
+    // the tools themselves.
+    if (onChatMessage && toolsCalled.length === 0) {
+      const textContent =
+        response instanceof AIMessage
+          ? typeof response.content === "string"
+            ? response.content
+            : Array.isArray(response.content)
+              ? response.content
+                  .filter((c): c is { type: "text"; text: string } => typeof c === "object" && c !== null && "type" in c && c.type === "text")
+                  .map((c) => c.text)
+                  .join("\n")
+              : ""
+          : "";
+
+      await onChatMessage({
+        agent: "reconstructor",
+        type: "agent_response",
+        agentMessage: `[${newIteration}/${maxIterations}] LLM response (no tool calls)`,
+        toolOutput: textContent || undefined,
+        timestamp: new Date().toISOString(),
+      });
     }
 
     return {
