@@ -222,7 +222,11 @@ export function buildGraph(options: BuildGraphOptions) {
 
     // Update iteration context so tools can include it in their chat messages
     if (toolConfig) {
-      toolConfig.iterationContext = { current: newIteration, max: maxIterations };
+      const toolsCalled =
+        response instanceof AIMessage && response.tool_calls
+          ? response.tool_calls.map((tc) => tc.name)
+          : [];
+      toolConfig.iterationContext = { current: newIteration, max: maxIterations, toolsCalled };
     }
 
     return {
@@ -243,8 +247,37 @@ export function buildGraph(options: BuildGraphOptions) {
 
     const result = await toolNode.invoke(state);
 
+    // Determine which tools were called in this batch
+    const lastAiMsg = [...state.messages].reverse().find((m) => m instanceof AIMessage) as AIMessage | undefined;
+    const calledTools = lastAiMsg?.tool_calls?.map((tc) => tc.name) ?? [];
+    const hadCompile = calledTools.includes("compile_pdf");
+    const hadVerify = calledTools.includes("verify_pdf");
+
+    // Check if compile_pdf succeeded (result message doesn't contain "FAILED")
+    let compileSucceeded = false;
+    if (hadCompile) {
+      for (const msg of result.messages) {
+        const content = typeof msg.content === "string" ? msg.content : "";
+        if (content.includes("Compilation successful")) {
+          compileSucceeded = true;
+          break;
+        }
+      }
+    }
+
+    // If compilation succeeded but verify_pdf wasn't called, inject a reminder
+    const outMessages = [...result.messages];
+    if (compileSucceeded && !hadVerify) {
+      log.info("Injecting verify_pdf reminder after successful compilation");
+      outMessages.push(
+        new HumanMessage(
+          "The PDF compiled successfully. You MUST now call verify_pdf to compare it against the original image before making any more changes or calling done.",
+        ),
+      );
+    }
+
     return {
-      messages: result.messages,
+      messages: outMessages,
     };
   }
 
@@ -308,11 +341,20 @@ export async function runGraph(options: RunGraphOptions) {
     imageSize: imageBase64.length,
   });
 
-  const finalState = await graph.invoke({
-    messages: initialMessages,
-    iterationCount: 0,
-    isDone: false,
-  });
+  const maxIter = options.maxIterations ?? DEFAULT_MAX_ITERATIONS;
+  const finalState = await graph.invoke(
+    {
+      messages: initialMessages,
+      iterationCount: 0,
+      isDone: false,
+    },
+    {
+      // Each LLM iteration uses ~2-3 graph steps (agent + tools + possibly stop).
+      // Set recursionLimit high enough so our own maxIterations check is the
+      // controlling limit, not LangGraph's default of 25.
+      recursionLimit: maxIter * 3 + 10,
+    },
+  );
 
   log.info("Graph execution complete", {
     totalIterations: finalState.iterationCount,

@@ -60,7 +60,8 @@ export function createReadLatexTool(config: ToolConfig) {
         // Log to chat history
         if (config.onChatMessage) {
           const iter = config.iterationContext;
-          const prefix = iter ? `[${iter.current}/${iter.max}] ` : "";
+          const batch = iter && iter.toolsCalled.length > 1 ? ` · ${iter.toolsCalled.join(" → ")}` : "";
+          const prefix = iter ? `[${iter.current}/${iter.max}${batch}] ` : "";
           await config.onChatMessage({
             agent: "reconstructor",
             type: "tool_call",
