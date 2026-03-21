@@ -17,6 +17,11 @@ const DEFAULT_MAX_ITERATIONS = 10;
 
 export type StopReason = "done_tool" | "max_iterations" | "no_tool_calls" | null;
 
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
 // Define the graph state with messages, iteration tracking, and done flag
 export const GraphState = Annotation.Root({
   messages: Annotation<BaseMessage[]>({
@@ -34,6 +39,13 @@ export const GraphState = Annotation.Root({
   stopReason: Annotation<StopReason>({
     reducer: (_prev, next) => next,
     default: () => null,
+  }),
+  tokenUsage: Annotation<TokenUsage>({
+    reducer: (prev, next) => ({
+      inputTokens: prev.inputTokens + next.inputTokens,
+      outputTokens: prev.outputTokens + next.outputTokens,
+    }),
+    default: () => ({ inputTokens: 0, outputTokens: 0 }),
   }),
 });
 
@@ -182,10 +194,22 @@ export function buildGraph(options: BuildGraphOptions) {
       });
     }
 
+    // Extract token usage from response metadata
+    const usage = (response as AIMessage).usage_metadata;
+    const inputTokens = usage?.input_tokens ?? 0;
+    const outputTokens = usage?.output_tokens ?? 0;
+
+    log.info("Token usage for iteration", {
+      iteration: newIteration,
+      inputTokens,
+      outputTokens,
+    });
+
     return {
       messages: [response],
       iterationCount: newIteration,
       isDone: doneDetected,
+      tokenUsage: { inputTokens, outputTokens },
     };
   }
 

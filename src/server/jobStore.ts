@@ -23,6 +23,7 @@ export interface JobData {
   createdAt: string;
   iterations?: number;
   stopReason?: string;
+  tokenUsage?: { inputTokens: number; outputTokens: number; totalTokens: number; estimatedCost: number };
   error?: string;
   chatHistory?: ChatMessage[];
   videoResult?: {

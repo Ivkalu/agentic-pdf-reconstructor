@@ -10,6 +10,7 @@
   <header class="header">
     <h1 class="header__title">Document Tools</h1>
     <p class="header__subtitle">PDF Reconstruction &amp; Video Analysis</p>
+    <span class="instance-badge" id="instance-badge" hidden></span>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -65,6 +66,7 @@
         <div class="result" id="pdf-result" hidden>
           <h3 class="result__title">Reconstruction Complete</h3>
           <p class="result__meta" id="pdf-iterations"></p>
+          <p class="result__meta result__cost" id="pdf-cost" hidden></p>
           <div class="result__preview" id="pdf-preview"></div>
           <button type="button" class="btn btn--primary" id="pdf-download-btn">Download PDF</button>
 

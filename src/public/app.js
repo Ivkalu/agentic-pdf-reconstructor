@@ -499,13 +499,33 @@
     }, 3000);
   }
 
+  function formatTokenCount(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+    if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+    return String(n);
+  }
+
   function displayPdfResult(jobId, data) {
     var result = $("#pdf-result");
     var iterationsEl = $("#pdf-iterations");
+    var costEl = $("#pdf-cost");
     var previewEl = $("#pdf-preview");
     var downloadBtn = $("#pdf-download-btn");
 
     iterationsEl.textContent = "Completed in " + (data.iterations || "N/A") + " iterations";
+
+    // Show token usage and cost
+    if (data.tokenUsage) {
+      var tu = data.tokenUsage;
+      costEl.innerHTML =
+        "Tokens: " + formatTokenCount(tu.inputTokens) + " in / " +
+        formatTokenCount(tu.outputTokens) + " out " +
+        "(" + formatTokenCount(tu.totalTokens) + " total) &mdash; " +
+        "Estimated cost: <strong>$" + tu.estimatedCost.toFixed(4) + "</strong>";
+      show(costEl);
+    } else {
+      hide(costEl);
+    }
 
     // PDF preview
     previewEl.innerHTML = "";
@@ -937,4 +957,20 @@
     el.textContent = message;
     show(el);
   }
+
+  // ───── Instance Badge ─────
+
+  (function loadInstanceBadge() {
+    fetch("/api/instance")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        var badge = $("#instance-badge");
+        if (badge && data.name) {
+          badge.textContent = data.name;
+          badge.title = "Instance started " + new Date(data.startedAt).toLocaleString();
+          show(badge);
+        }
+      })
+      .catch(function () { /* ignore */ });
+  })();
 })();

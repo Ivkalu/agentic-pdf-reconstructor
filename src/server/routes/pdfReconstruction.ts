@@ -95,12 +95,20 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
         const imageBuffer = await readFile(imagePath);
         const imageBase64 = imageBuffer.toString("base64");
 
+        // Track analyzer token usage (accumulated outside the graph)
+        let analyzerInputTokens = 0;
+        let analyzerOutputTokens = 0;
+
         const toolConfig: ToolConfig = {
           workspacePath: jobWorkspace,
           originalImagePath: imagePath,
           apiKey,
           onChatMessage: async (message) => {
             await appendChatMessage(jobId, message);
+          },
+          onTokenUsage: async (inputTokens, outputTokens) => {
+            analyzerInputTokens += inputTokens;
+            analyzerOutputTokens += outputTokens;
           },
         };
 
@@ -122,6 +130,13 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
 
         const stopReason = finalState.stopReason ?? "unknown";
 
+        // Compute total token usage (reconstructor from graph + analyzer from callback)
+        const totalInputTokens = (finalState.tokenUsage?.inputTokens ?? 0) + analyzerInputTokens;
+        const totalOutputTokens = (finalState.tokenUsage?.outputTokens ?? 0) + analyzerOutputTokens;
+        const totalTokens = totalInputTokens + totalOutputTokens;
+        // Claude Sonnet 4: $3/MTok input, $15/MTok output
+        const estimatedCost = (totalInputTokens / 1_000_000) * 3 + (totalOutputTokens / 1_000_000) * 15;
+
         // Emit a final chat message showing why the agent stopped
         const stopLabels: Record<string, string> = {
           done_tool: "Agent finished — called done tool",
@@ -141,12 +156,16 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           status: "completed",
           iterations: finalState.iterationCount,
           stopReason,
+          tokenUsage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens, totalTokens, estimatedCost },
         });
 
         log.info("PDF reconstruction job completed", {
           jobId,
           iterations: finalState.iterationCount,
           stopReason,
+          totalInputTokens,
+          totalOutputTokens,
+          estimatedCost: `$${estimatedCost.toFixed(4)}`,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
@@ -196,6 +215,7 @@ router.get("/result/:id", async (req: Request<{ id: string }>, res: Response) =>
         data: {
           status: "completed",
           iterations: job.iterations,
+          tokenUsage: job.tokenUsage ?? null,
           outputPdf: null,
         },
       });
@@ -217,6 +237,7 @@ router.get("/result/:id", async (req: Request<{ id: string }>, res: Response) =>
       data: {
         status: "completed",
         iterations: job.iterations,
+        tokenUsage: job.tokenUsage ?? null,
         outputPdf: pdfBase64,
       },
     });

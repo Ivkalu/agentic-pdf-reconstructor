@@ -7,6 +7,7 @@ import healthRouter from "./routes/health.js";
 import jobsRouter from "./routes/jobs.js";
 import pdfReconstructionRouter from "./routes/pdfReconstruction.js";
 import videoAnalyzerRouter from "./routes/videoAnalyzer.js";
+import { INSTANCE_NAME, INSTANCE_STARTED_AT } from "./instanceName.js";
 
 const log = createChildLogger({ agent: "server" });
 
@@ -22,6 +23,11 @@ app.use(express.json({ limit: "10mb" }));
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "..", "public");
 app.use(express.static(publicDir));
+
+// Instance info endpoint
+app.get("/api/instance", (_req, res) => {
+  res.json({ name: INSTANCE_NAME, startedAt: INSTANCE_STARTED_AT });
+});
 
 // Mount routes
 app.use("/api/health", healthRouter);
@@ -52,6 +58,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
 app.listen(PORT, () => {
+  log.info(`🏷️  Instance: "${INSTANCE_NAME}" (started ${INSTANCE_STARTED_AT})`);
   log.info(`Server listening on port ${PORT}`);
   log.info(`Static files served from ${publicDir}`);
   log.info(`Health check: http://localhost:${PORT}/api/health`);

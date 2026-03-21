@@ -94,32 +94,39 @@ export function createVerifyPdfTool(config: ToolConfig) {
         log.info("Invoking analyzer agent", {
           previousFeedbackRounds: feedbackHistory.length,
         });
-        const feedback = await analyzeDocuments(
+        const result = await analyzeDocuments(
           originalBase64,
           pdfImages,
           apiKey,
           feedbackHistory.length > 0 ? feedbackHistory : undefined,
         );
 
-        feedbackHistory.push(feedback);
+        feedbackHistory.push(result.feedback);
 
         log.info("Analyzer response received", {
-          feedbackLength: feedback.length,
+          feedbackLength: result.feedback.length,
           feedbackRound: feedbackHistory.length,
-          feedback,
+          feedback: result.feedback,
+          inputTokens: result.inputTokens,
+          outputTokens: result.outputTokens,
         });
+
+        // Report analyzer token usage
+        if (config.onTokenUsage) {
+          await config.onTokenUsage(result.inputTokens, result.outputTokens);
+        }
 
         // Log to chat history
         if (config.onChatMessage) {
           await config.onChatMessage({
             agent: "analyzer",
             type: "agent_response",
-            agentMessage: feedback,
+            agentMessage: result.feedback,
             timestamp: new Date().toISOString(),
           });
         }
 
-        return feedback;
+        return result.feedback;
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Unknown verification error";

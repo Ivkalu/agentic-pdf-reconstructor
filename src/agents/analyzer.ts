@@ -52,7 +52,7 @@ export async function analyzeDocuments(
   pdfImages: string[],
   apiKey: string,
   previousFeedback?: string[],
-): Promise<string> {
+): Promise<{ feedback: string; inputTokens: number; outputTokens: number }> {
   log.info("Analyzer invoked", {
     originalImageSize: originalImage.length,
     pdfPageCount: pdfImages.length,
@@ -137,9 +137,15 @@ export async function analyzeDocuments(
           .map((block) => block.text)
           .join("\n");
 
+  const usage = response.usage_metadata;
+  const inputTokens = usage?.input_tokens ?? 0;
+  const outputTokens = usage?.output_tokens ?? 0;
+
   log.info("Analyzer response received", {
     responseLength: feedback.length,
+    inputTokens,
+    outputTokens,
   });
 
-  return feedback;
+  return { feedback, inputTokens, outputTokens };
 }
