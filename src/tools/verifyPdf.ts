@@ -71,9 +71,16 @@ export function createVerifyPdfTool(config: ToolConfig) {
         const originalBuf = await readFile(config.originalImagePath);
         const originalBase64 = originalBuf.toString("base64");
 
+        // Detect the correct MIME type from the file extension
+        const ext = path.extname(config.originalImagePath).toLowerCase();
+        const originalMimeType =
+          ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : "image/png";
+        const originalDataUrl = `data:${originalMimeType};base64,${originalBase64}`;
+
         log.info("Original image loaded", {
           path: config.originalImagePath,
           sizeBytes: originalBuf.length,
+          mimeType: originalMimeType,
         });
 
         // Convert compiled PDF to page images
@@ -95,7 +102,7 @@ export function createVerifyPdfTool(config: ToolConfig) {
           previousFeedbackRounds: feedbackHistory.length,
         });
         const result = await analyzeDocuments(
-          originalBase64,
+          originalDataUrl,
           pdfImages,
           apiKey,
           feedbackHistory.length > 0 ? feedbackHistory : undefined,
