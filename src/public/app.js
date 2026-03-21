@@ -256,6 +256,7 @@
   var pdfChatList = $("#pdf-chat-list");
   var chatPollInterval = null;
   var chatCurrentJobId = null;
+  var chatRenderedCount = 0; // track how many messages are already rendered
 
   function startChatDisplay(jobId) {
     if (chatPollInterval) {
@@ -263,6 +264,7 @@
       chatPollInterval = null;
     }
     chatCurrentJobId = jobId;
+    chatRenderedCount = 0;
     pdfChatList.innerHTML = "";
     show(pdfChatEmpty);
     hide(pdfChatList);
@@ -284,6 +286,7 @@
   function loadChatOnce(jobId) {
     stopChatPolling();
     chatCurrentJobId = jobId;
+    chatRenderedCount = 0;
     pdfChatList.innerHTML = "";
     show(pdfChatEmpty);
     hide(pdfChatList);
@@ -296,14 +299,113 @@
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (!data.success) return;
-        renderChatHistory(data.data.chatHistory || []);
+        renderChatHistory(data.data.chatHistory || [], jobId);
       })
       .catch(function () {});
   }
 
-  function renderChatHistory(messages) {
-    pdfChatList.innerHTML = "";
+  function buildChatMsgElement(msg, jobId) {
+    var div = document.createElement("div");
+    div.className = "chat-msg chat-msg--" + msg.agent;
 
+    // Detect stop-reason messages
+    var isStopMsg = msg.type === "agent_response" &&
+      msg.agentMessage && msg.agentMessage.indexOf("Agent ") === 0 &&
+      (msg.agentMessage.indexOf("stopped") !== -1 || msg.agentMessage.indexOf("finished") !== -1);
+    if (isStopMsg) {
+      div.classList.add("chat-msg--stop");
+    }
+
+    // Detect LLM iteration messages
+    var isIterationMsg = msg.type === "agent_response" &&
+      msg.agentMessage && msg.agentMessage.indexOf("LLM iteration ") === 0;
+    if (isIterationMsg) {
+      div.classList.add("chat-msg--iteration");
+    }
+
+    // Determine summary and detail content
+    var summary;
+    var detail;
+    if (msg.type === "tool_call") {
+      summary = msg.toolInput || "";
+      detail = msg.toolOutput || "";
+    } else if (isIterationMsg) {
+      summary = msg.agentMessage || "";
+      detail = msg.toolOutput || "";
+    } else {
+      summary = "";
+      detail = msg.agentMessage || "";
+    }
+    var hasDetail = detail && detail !== summary;
+
+    if (hasDetail) {
+      div.classList.add("chat-msg--expandable");
+    }
+
+    var header = document.createElement("div");
+    header.className = "chat-msg__header";
+
+    var agentBadge = document.createElement("span");
+    agentBadge.className = "chat-msg__agent";
+    agentBadge.textContent = msg.agent === "reconstructor" ? "Reconstructor" : "Analyzer";
+    header.appendChild(agentBadge);
+
+    if (msg.type === "tool_call" && msg.toolName) {
+      var toolBadge = document.createElement("span");
+      toolBadge.className = "chat-msg__tool";
+      toolBadge.textContent = msg.toolName;
+      header.appendChild(toolBadge);
+    }
+
+    if (hasDetail) {
+      var chevron = document.createElement("span");
+      chevron.className = "chat-msg__chevron";
+      chevron.textContent = "\u25B6";
+      header.appendChild(chevron);
+    }
+
+    // "View LaTeX" button for write_latex messages
+    if (msg.type === "tool_call" && msg.toolName === "write_latex" && jobId) {
+      var viewBtn = document.createElement("button");
+      viewBtn.className = "chat-msg__latex-btn";
+      viewBtn.textContent = "View LaTeX";
+      viewBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        openLatexSidebar(jobId);
+      });
+      header.appendChild(viewBtn);
+    }
+
+    var time = document.createElement("span");
+    time.className = "chat-msg__time";
+    var d = new Date(msg.timestamp);
+    time.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    header.appendChild(time);
+
+    div.appendChild(header);
+
+    // Summary line (always visible)
+    var body = document.createElement("div");
+    body.className = "chat-msg__body";
+    body.textContent = summary || detail;
+    div.appendChild(body);
+
+    // Expandable detail section
+    if (hasDetail) {
+      var detailDiv = document.createElement("div");
+      detailDiv.className = "chat-msg__detail";
+      detailDiv.textContent = detail;
+      div.appendChild(detailDiv);
+
+      div.addEventListener("click", function () {
+        div.classList.toggle("chat-msg--expanded");
+      });
+    }
+
+    return div;
+  }
+
+  function renderChatHistory(messages, jobId) {
     if (!messages || messages.length === 0) {
       show(pdfChatEmpty);
       hide(pdfChatList);
@@ -313,79 +415,73 @@
     hide(pdfChatEmpty);
     show(pdfChatList);
 
-    messages.forEach(function (msg) {
-      var div = document.createElement("div");
-      div.className = "chat-msg chat-msg--" + msg.agent;
+    // Only append new messages (preserve existing expanded states)
+    var newMessages = messages.slice(chatRenderedCount);
+    if (newMessages.length === 0) return;
 
-      // Detect stop-reason messages
-      var isStopMsg = msg.type === "agent_response" &&
-        msg.agentMessage && msg.agentMessage.indexOf("Agent ") === 0 &&
-        (msg.agentMessage.indexOf("stopped") !== -1 || msg.agentMessage.indexOf("finished") !== -1);
-      if (isStopMsg) {
-        div.classList.add("chat-msg--stop");
-      }
-
-      // Determine summary and detail content
-      var summary = msg.type === "tool_call" ? (msg.toolInput || "") : "";
-      var detail = msg.type === "tool_call" ? (msg.toolOutput || "") : (msg.agentMessage || "");
-      var hasDetail = detail && detail !== summary;
-
-      if (hasDetail) {
-        div.classList.add("chat-msg--expandable");
-      }
-
-      var header = document.createElement("div");
-      header.className = "chat-msg__header";
-
-      var agentBadge = document.createElement("span");
-      agentBadge.className = "chat-msg__agent";
-      agentBadge.textContent = msg.agent === "reconstructor" ? "Reconstructor" : "Analyzer";
-      header.appendChild(agentBadge);
-
-      if (msg.type === "tool_call" && msg.toolName) {
-        var toolBadge = document.createElement("span");
-        toolBadge.className = "chat-msg__tool";
-        toolBadge.textContent = msg.toolName;
-        header.appendChild(toolBadge);
-      }
-
-      if (hasDetail) {
-        var chevron = document.createElement("span");
-        chevron.className = "chat-msg__chevron";
-        chevron.textContent = "\u25B6";
-        header.appendChild(chevron);
-      }
-
-      var time = document.createElement("span");
-      time.className = "chat-msg__time";
-      var d = new Date(msg.timestamp);
-      time.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      header.appendChild(time);
-
-      div.appendChild(header);
-
-      // Summary line (always visible)
-      var body = document.createElement("div");
-      body.className = "chat-msg__body";
-      body.textContent = summary || detail;
-      div.appendChild(body);
-
-      // Expandable detail section
-      if (hasDetail) {
-        var detailDiv = document.createElement("div");
-        detailDiv.className = "chat-msg__detail";
-        detailDiv.textContent = detail;
-        div.appendChild(detailDiv);
-
-        div.addEventListener("click", function () {
-          div.classList.toggle("chat-msg--expanded");
-        });
-      }
-
-      pdfChatList.appendChild(div);
+    newMessages.forEach(function (msg) {
+      pdfChatList.appendChild(buildChatMsgElement(msg, jobId));
     });
 
+    chatRenderedCount = messages.length;
     pdfChatList.lastElementChild.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  // ───── LaTeX Sidebar ─────
+
+  function openLatexSidebar(jobId) {
+    var existing = document.getElementById("latex-sidebar");
+    if (existing) existing.remove();
+
+    var overlay = document.createElement("div");
+    overlay.id = "latex-sidebar";
+    overlay.className = "latex-sidebar";
+
+    var panel = document.createElement("div");
+    panel.className = "latex-sidebar__panel";
+
+    var panelHeader = document.createElement("div");
+    panelHeader.className = "latex-sidebar__header";
+
+    var title = document.createElement("h3");
+    title.textContent = "LaTeX Source";
+    panelHeader.appendChild(title);
+
+    var closeBtn = document.createElement("button");
+    closeBtn.className = "btn btn--secondary btn--sm";
+    closeBtn.textContent = "Close";
+    closeBtn.addEventListener("click", function () { overlay.remove(); });
+    panelHeader.appendChild(closeBtn);
+
+    panel.appendChild(panelHeader);
+
+    var code = document.createElement("pre");
+    code.className = "latex-sidebar__code";
+    code.textContent = "Loading\u2026";
+    panel.appendChild(code);
+
+    overlay.appendChild(panel);
+
+    // Close on overlay click
+    overlay.addEventListener("click", function (e) {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    document.body.appendChild(overlay);
+
+    // Fetch the LaTeX source
+    fetch("/api/pdf-reconstruction/result/" + encodeURIComponent(jobId) + "/latex")
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.success && data.data && data.data.content) {
+          code.textContent = data.data.content;
+        } else {
+          code.textContent = "No LaTeX file found.";
+        }
+      })
+      .catch(function () {
+        code.textContent = "Failed to load LaTeX source.";
+      });
   }
 
   $("#jobs-refresh-btn").addEventListener("click", loadJobHistory);
@@ -960,15 +1056,38 @@
 
   // ───── Instance Badge ─────
 
+  function formatUptime(ms) {
+    var seconds = Math.floor(ms / 1000);
+    var minutes = Math.floor(seconds / 60);
+    var hours = Math.floor(minutes / 60);
+    var days = Math.floor(hours / 24);
+
+    if (days > 0) return days + "d " + (hours % 24) + "h";
+    if (hours > 0) return hours + "h " + (minutes % 60) + "m";
+    if (minutes > 0) return minutes + "m";
+    return "just started";
+  }
+
   (function loadInstanceBadge() {
+    var instanceStartedAt = null;
+
     fetch("/api/instance")
       .then(function (res) { return res.json(); })
       .then(function (data) {
         var badge = $("#instance-badge");
+        var uptimeEl = $("#instance-uptime");
         if (badge && data.name) {
           badge.textContent = data.name;
           badge.title = "Instance started " + new Date(data.startedAt).toLocaleString();
           show(badge);
+        }
+        if (uptimeEl && data.startedAt) {
+          instanceStartedAt = new Date(data.startedAt).getTime();
+          uptimeEl.textContent = formatUptime(Date.now() - instanceStartedAt);
+          show(uptimeEl);
+          setInterval(function () {
+            uptimeEl.textContent = formatUptime(Date.now() - instanceStartedAt);
+          }, 60000);
         }
       })
       .catch(function () { /* ignore */ });

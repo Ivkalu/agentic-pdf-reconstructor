@@ -126,6 +126,9 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
           imageBase64,
           imageMimeType,
           originalImagePath: imagePath,
+          onChatMessage: async (message) => {
+            await appendChatMessage(jobId, message as any);
+          },
         });
 
         const stopReason = finalState.stopReason ?? "unknown";
@@ -138,17 +141,18 @@ router.post("/upload", upload.single("file"), async (req: Request, res: Response
         const estimatedCost = (totalInputTokens / 1_000_000) * 3 + (totalOutputTokens / 1_000_000) * 15;
 
         // Emit a final chat message showing why the agent stopped
-        const stopLabels: Record<string, string> = {
-          done_tool: "Agent finished — called done tool",
-          max_iterations: "Agent stopped — reached maximum iterations",
-          no_tool_calls: "Agent stopped — no tool calls in last response",
-          unknown: "Agent stopped — unknown reason",
+        const iters = finalState.iterationCount;
+        const stopMessages: Record<string, string> = {
+          done_tool: `Agent finished — called done tool (${iters} LLM iterations)`,
+          max_iterations: `Agent stopped — reached maximum iterations (${iters}/${iters} LLM calls)`,
+          no_tool_calls: `Agent stopped — produced no tool calls on iteration ${iters} (the LLM responded with text only)`,
+          unknown: `Agent stopped — unknown reason (${iters} iterations)`,
         };
         await appendChatMessage(jobId, {
           agent: "reconstructor",
           type: "agent_response",
-          agentMessage: stopLabels[stopReason] ?? stopLabels.unknown,
-          toolOutput: `Stop reason: ${stopReason}, Iterations: ${finalState.iterationCount}`,
+          agentMessage: stopMessages[stopReason] ?? stopMessages.unknown,
+          toolOutput: `Stop reason: ${stopReason}\nLLM iterations: ${iters}\nNote: Each LLM iteration may produce 0, 1, or multiple tool calls. The iteration count reflects LLM calls, not tool calls visible in the chat.`,
           timestamp: new Date().toISOString(),
         });
 
@@ -333,6 +337,33 @@ router.get("/result/:id/iteration/:n", async (req: Request<{ id: string; n: stri
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     log.error("Iteration fetch error", { error: message });
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+// GET /api/pdf-reconstruction/result/:id/latex — serve the LaTeX source
+router.get("/result/:id/latex", async (req: Request<{ id: string }>, res: Response) => {
+  try {
+    const id = req.params.id;
+    const job = await getJob(id);
+
+    if (!job) {
+      res.status(404).json({ success: false, error: "Job not found" });
+      return;
+    }
+
+    const workspacePath = getJobWorkspacePath(id);
+    const texPath = path.join(workspacePath, "document.tex");
+
+    try {
+      const content = await readFile(texPath, "utf-8");
+      res.json({ success: true, data: { content } });
+    } catch {
+      res.json({ success: true, data: { content: null } });
+    }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    log.error("LaTeX fetch error", { error: message });
     res.status(500).json({ success: false, error: message });
   }
 });

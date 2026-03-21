@@ -56,9 +56,16 @@ body {
   margin-top: 0.25rem;
 }
 
+.instance-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .instance-badge {
   display: inline-block;
-  margin-top: 0.5rem;
   padding: 0.2rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -67,6 +74,17 @@ body {
   border: 1px solid var(--color-primary);
   border-radius: 999px;
   letter-spacing: 0.025em;
+}
+
+.instance-uptime {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
 }
 
 /* Tabs */
@@ -771,6 +789,17 @@ body {
   font-weight: 600;
 }
 
+.chat-msg--iteration {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+  border-style: dashed;
+}
+
+.chat-msg--iteration .chat-msg__body {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
 .chat-msg__header {
   display: flex;
   align-items: center;
@@ -860,6 +889,70 @@ body {
   opacity: 1;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
+}
+
+/* "View LaTeX" button in chat messages */
+.chat-msg__latex-btn {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  cursor: pointer;
+  margin-left: 0.25rem;
+  white-space: nowrap;
+}
+
+.chat-msg__latex-btn:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* LaTeX Sidebar Overlay */
+.latex-sidebar {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.latex-sidebar__panel {
+  width: min(700px, 90vw);
+  height: 100%;
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+}
+
+.latex-sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.latex-sidebar__header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.latex-sidebar__code {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.25rem;
+  margin: 0;
+  font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: #f8fafc;
+  white-space: pre;
+  tab-size: 2;
 }
 
 /* Responsive */

@@ -13,7 +13,7 @@ import { createChildLogger } from "../utils/logger.js";
 
 const log = createChildLogger({ agent: "graph" });
 
-const DEFAULT_MAX_ITERATIONS = 10;
+const DEFAULT_MAX_ITERATIONS = 25;
 
 export type StopReason = "done_tool" | "max_iterations" | "no_tool_calls" | null;
 
@@ -116,8 +116,10 @@ function resolveStopReason(state: GraphStateType, maxIterations: number): StopRe
     lastMessage.tool_calls &&
     lastMessage.tool_calls.length > 0;
 
-  if (state.iterationCount >= maxIterations) return "max_iterations";
+  // If the agent produced no tool calls, that's the primary reason — even if
+  // we also happen to be at the iteration limit.
   if (!hasToolCalls) return "no_tool_calls";
+  if (state.iterationCount >= maxIterations) return "max_iterations";
 
   return "max_iterations";
 }
@@ -129,6 +131,15 @@ export interface BuildGraphOptions {
   systemPrompt?: string;
   imageBase64: string;
   imageMimeType: string;
+  onChatMessage?: (message: {
+    agent: string;
+    type: string;
+    toolName?: string;
+    toolInput?: string;
+    toolOutput?: string;
+    agentMessage?: string;
+    timestamp: string;
+  }) => Promise<void>;
 }
 
 export function buildGraph(options: BuildGraphOptions) {
@@ -138,6 +149,7 @@ export function buildGraph(options: BuildGraphOptions) {
     maxIterations = DEFAULT_MAX_ITERATIONS,
     imageBase64,
     imageMimeType,
+    onChatMessage,
   } = options;
 
   log.info("Building LangGraph workflow", {
@@ -204,6 +216,37 @@ export function buildGraph(options: BuildGraphOptions) {
       inputTokens,
       outputTokens,
     });
+
+    // Emit a chat message for every LLM iteration so nothing is hidden
+    if (onChatMessage) {
+      const toolCallNames =
+        response instanceof AIMessage && response.tool_calls && response.tool_calls.length > 0
+          ? response.tool_calls.map((tc) => tc.name)
+          : [];
+      const textContent =
+        response instanceof AIMessage
+          ? typeof response.content === "string"
+            ? response.content
+            : Array.isArray(response.content)
+              ? response.content
+                  .filter((c): c is { type: "text"; text: string } => typeof c === "object" && c !== null && "type" in c && c.type === "text")
+                  .map((c) => c.text)
+                  .join("\n")
+              : ""
+          : "";
+
+      const summary = toolCallNames.length > 0
+        ? `LLM iteration ${newIteration}/${maxIterations} — calling: ${toolCallNames.join(", ")}`
+        : `LLM iteration ${newIteration}/${maxIterations} — no tool calls (text-only response)`;
+
+      await onChatMessage({
+        agent: "reconstructor",
+        type: "agent_response",
+        agentMessage: summary,
+        toolOutput: textContent || undefined,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     return {
       messages: [response],
