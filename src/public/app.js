@@ -333,8 +333,8 @@
       summary = msg.agentMessage || "";
       detail = msg.toolOutput || "";
     } else {
-      summary = "";
-      detail = msg.agentMessage || "";
+      summary = msg.agentMessage || "";
+      detail = msg.toolOutput || "";
     }
     var hasDetail = detail && detail !== summary;
 

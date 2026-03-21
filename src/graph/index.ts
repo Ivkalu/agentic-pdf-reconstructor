@@ -217,37 +217,6 @@ export function buildGraph(options: BuildGraphOptions) {
       outputTokens,
     });
 
-    // Emit a chat message for every LLM iteration so nothing is hidden
-    if (onChatMessage) {
-      const toolCallNames =
-        response instanceof AIMessage && response.tool_calls && response.tool_calls.length > 0
-          ? response.tool_calls.map((tc) => tc.name)
-          : [];
-      const textContent =
-        response instanceof AIMessage
-          ? typeof response.content === "string"
-            ? response.content
-            : Array.isArray(response.content)
-              ? response.content
-                  .filter((c): c is { type: "text"; text: string } => typeof c === "object" && c !== null && "type" in c && c.type === "text")
-                  .map((c) => c.text)
-                  .join("\n")
-              : ""
-          : "";
-
-      const summary = toolCallNames.length > 0
-        ? `LLM iteration ${newIteration}/${maxIterations} — calling: ${toolCallNames.join(", ")}`
-        : `LLM iteration ${newIteration}/${maxIterations} — no tool calls (text-only response)`;
-
-      await onChatMessage({
-        agent: "reconstructor",
-        type: "agent_response",
-        agentMessage: summary,
-        toolOutput: textContent || undefined,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
     return {
       messages: [response],
       iterationCount: newIteration,

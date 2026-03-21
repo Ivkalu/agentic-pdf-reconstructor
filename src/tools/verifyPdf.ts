@@ -116,12 +116,23 @@ export function createVerifyPdfTool(config: ToolConfig) {
           await config.onTokenUsage(result.inputTokens, result.outputTokens);
         }
 
-        // Log to chat history
+        // Log verify_pdf tool call to chat history
         if (config.onChatMessage) {
+          await config.onChatMessage({
+            agent: "reconstructor",
+            type: "tool_call",
+            toolName: "verify_pdf",
+            toolInput: `Verifying PDF against original (round ${feedbackHistory.length})`,
+            toolOutput: `Analyzer invoked — ${result.feedback.length} chars of feedback`,
+            timestamp: new Date().toISOString(),
+          });
+
+          // Log analyzer agent response separately
           await config.onChatMessage({
             agent: "analyzer",
             type: "agent_response",
-            agentMessage: result.feedback,
+            agentMessage: `Comparison feedback (round ${feedbackHistory.length})`,
+            toolOutput: result.feedback,
             timestamp: new Date().toISOString(),
           });
         }
