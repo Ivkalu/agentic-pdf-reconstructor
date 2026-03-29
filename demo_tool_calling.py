@@ -78,7 +78,6 @@ print("\n" + "=" * 60)
 print("3. IZVRSAVAMO TOOL I NASTAVLJAMO KONVERZACIJU")
 print("=" * 60)
 
-# Simuliramo poziv pravog API-ja - vracamo lazni rezultat
 fake_weather_result = {"temperature": 18, "unit": "celsius", "condition": "oblacno"}
 
 print(f"\n[ORCHESTRATOR] Pozivam tool '{tool_use_block.name}' s argumentima: {tool_use_block.input}")
@@ -90,17 +89,14 @@ final_response = client.messages.create(
     max_tokens=256,
     tools=tools,
     messages=[
-        # originalna poruka
         {"role": "user", "content": "Koja je temperatura u Zagrebu danas?"},
-        # model je trazio tool
         {"role": "assistant", "content": response_with_tool.content},
-        # mi vracamo rezultat toola
         {
             "role": "user",
             "content": [
                 {
                     "type": "tool_result",
-                    "tool_use_id": tool_use_block.id,   # mora matchati id iz gore
+                    "tool_use_id": tool_use_block.id,
                     "content": json.dumps(fake_weather_result)
                 }
             ]
@@ -110,3 +106,74 @@ final_response = client.messages.create(
 
 print(f"stop_reason     : {final_response.stop_reason}")
 print(f"FINALNI ODGOVOR : {final_response.content[0].text}")
+
+
+# ─────────────────────────────────────────────
+# 4. EXTENDED THINKING
+# Napomena: zahtijeva claude-3-7-sonnet ili noviji model
+# budget_tokens = koliko tokena model smije potrositi na razmisljanje
+# ─────────────────────────────────────────────
+print("\n" + "=" * 60)
+print("4. EXTENDED THINKING")
+print("=" * 60)
+
+thinking_response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=16000,          # mora biti veci od budget_tokens
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 10000  # max tokena za thinking
+    },
+    messages=[
+        {"role": "user", "content": "Koja je temperatura u Zagrebu danas?"}
+    ]
+)
+
+print("\n--- RAW CONTENT BLOCKS ---")
+for i, block in enumerate(thinking_response.content):
+    print(f"\n[block {i}] type = {block.type}")
+    if block.type == "thinking":
+        # thinking block - interni reasoning, enkriptiran/neopaque u produkciji
+        print(f"  thinking (prvih 300 znakova):\n  {block.thinking[:300]}...")
+    elif block.type == "text":
+        print(f"  text: {block.text}")
+
+print(f"\nstop_reason : {thinking_response.stop_reason}")
+
+
+# ─────────────────────────────────────────────
+# 5. THINKING + TOOL USE ZAJEDNO
+# Model razmislja, pa odluci pozvati tool
+# ─────────────────────────────────────────────
+print("\n" + "=" * 60)
+print("5. THINKING + TOOL USE ZAJEDNO")
+print("=" * 60)
+
+thinking_tool_response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=16000,
+    thinking={
+        "type": "enabled",
+        "budget_tokens": 5000
+    },
+    tools=tools,
+    messages=[
+        {"role": "user", "content": "Trebam znati temperaturu u Zagrebu da odlucim sto obuci."}
+    ]
+)
+
+print("\n--- RAW CONTENT BLOCKS ---")
+for i, block in enumerate(thinking_tool_response.content):
+    print(f"\n[block {i}] type = {block.type}")
+    if block.type == "thinking":
+        print(f"  thinking (prvih 200 znakova):\n  {block.thinking[:200]}...")
+    elif block.type == "tool_use":
+        print(f"  tool_use:")
+        print(f"    name  : {block.name}")
+        print(f"    id    : {block.id}")
+        print(f"    input : {block.input}")
+    elif block.type == "text":
+        print(f"  text: {block.text}")
+
+print(f"\nstop_reason : {thinking_tool_response.stop_reason}")
+print("\nRedoslijed blokova pokazuje: model PRVO razmislja, ZATIM trazi tool")
