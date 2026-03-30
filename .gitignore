@@ -6,3 +6,5 @@ output/
 input/
 *.log
 .claude
+
+.venv/
