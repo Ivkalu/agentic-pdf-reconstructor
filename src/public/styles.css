@@ -56,6 +56,20 @@ body {
   margin-top: 0.25rem;
 }
 
+.header__star {
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+.header__star a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.header__star a:hover {
+  text-decoration: underline;
+}
+
 .instance-info {
   display: flex;
   justify-content: center;
